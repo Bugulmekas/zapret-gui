@@ -38,6 +38,7 @@ $script:Config = [pscustomobject]@{
     SelectedStrategy    = ''
     LastStartedStrategy = ''
     CheckUpdatesOnStart = $true
+    Theme               = 'dark'
 }
 
 if (Test-Path -LiteralPath $script:ConfigPath) {
@@ -47,6 +48,7 @@ if (Test-Path -LiteralPath $script:ConfigPath) {
         if ($loaded.SelectedStrategy) { $script:Config.SelectedStrategy = [string]$loaded.SelectedStrategy }
         if ($loaded.LastStartedStrategy) { $script:Config.LastStartedStrategy = [string]$loaded.LastStartedStrategy }
         if ($null -ne $loaded.CheckUpdatesOnStart) { $script:Config.CheckUpdatesOnStart = [bool]$loaded.CheckUpdatesOnStart }
+        if ($loaded.Theme) { $script:Config.Theme = [string]$loaded.Theme }
     } catch { }
 }
 
@@ -157,21 +159,150 @@ function Get-Brush {
     return $script:BrushCache[$Hex]
 }
 
-$script:BrCanvas   = Get-Brush '#F5F5F7'
-$script:BrSurface  = Get-Brush '#FFFFFF'
-$script:BrInk      = Get-Brush '#1D1D1F'
-$script:BrBody     = Get-Brush '#3A3A3C'
-$script:BrMuted    = Get-Brush '#6E6E73'
-$script:BrGreen    = Get-Brush '#248A3D'
-$script:BrRed      = Get-Brush '#D70015'
-$script:BrOrange   = Get-Brush '#B25000'
-$script:BrAccent   = Get-Brush '#0071E3'
-$script:BrLogText  = Get-Brush '#3A3A3C'
-$script:BrLogGray  = Get-Brush '#8E8E93'
-$script:BrPillOk   = Get-Brush '#E8F6EC'
-$script:BrPillBad  = Get-Brush '#FDECEB'
-$script:BrPillOkDot = Get-Brush '#34C759'
-$script:BrPillBadDot = Get-Brush '#FF3B30'
+$script:Themes = @{
+    light = @{
+        Canvas = '#F5F5F7'; Surface = '#FFFFFF'; Ink = '#1D1D1F'; Body = '#3A3A3C'
+        Muted = '#6E6E73'; Hairline = '#E5E5EA'; Field = '#F2F2F7'; FieldHover = '#E9E9EE'
+        Accent = '#0071E3'; AccentText = '#FFFFFF'; Danger = '#D70015'; DangerSoft = '#FDECEB'
+        WindowBorder = '#D6D6DB'; NavActive = '#FFFFFF'; CheckBorder = '#C7C7CC'; CheckHover = '#8E8E93'
+        ListHover = '#F7F7F9'; FocusBorder = '#9CC7F2'; Selection = '#B3D7F7'; LogBg = '#FBFBFD'
+        CardBorder = '#E5E5EA'; ListSelected = '#F2F2F7'; MenuItemHover = '#F2F2F7'; Thumb = '#C7C7CC'; NavActiveText = '#1D1D1F'
+        Green = '#248A3D'; Red = '#D70015'; Orange = '#B25000'
+        LogText = '#3A3A3C'; LogGray = '#8E8E93'; LogCyan = '#0A6E9E'; LogBlue = '#0A5BB5'
+        PillOk = '#E8F6EC'; PillBad = '#FDECEB'; PillOkDot = '#34C759'; PillBadDot = '#FF3B30'
+    }
+    dark = @{
+        Canvas = '#111113'; Surface = '#1A1A1D'; Ink = '#F5F5F7'; Body = '#C7C7CC'
+        Muted = '#8E8E93'; Hairline = '#2A2A2F'; Field = '#26262A'; FieldHover = '#303036'
+        Accent = '#0A84FF'; AccentText = '#FFFFFF'; Danger = '#FF453A'; DangerSoft = '#33191A'
+        WindowBorder = '#2A2A2F'; NavActive = '#303036'; CheckBorder = '#56565C'; CheckHover = '#8E8E93'
+        ListHover = '#202024'; FocusBorder = '#0A84FF'; Selection = '#2F4C73'; LogBg = '#151517'
+        CardBorder = '#2A2A2F'; ListSelected = '#303036'; MenuItemHover = '#303036'; Thumb = '#56565C'; NavActiveText = '#F5F5F7'
+        Green = '#30D158'; Red = '#FF453A'; Orange = '#FF9F0A'
+        LogText = '#C7C7CC'; LogGray = '#8E8E93'; LogCyan = '#64D2FF'; LogBlue = '#0A84FF'
+        PillOk = '#17301F'; PillBad = '#331715'; PillOkDot = '#34C759'; PillBadDot = '#FF453A'
+    }
+    neon = @{
+        Canvas = '#0D1117'; Surface = '#0E1626'; Ink = '#E7F2FF'; Body = '#A9BCD6'
+        Muted = '#7C8DA6'; Hairline = '#1C2B45'; Field = '#111C2E'; FieldHover = '#16233A'
+        Accent = '#00F5FF'; AccentText = '#04121A'; Danger = '#FF2BD6'; DangerSoft = '#2A0F2A'
+        WindowBorder = '#1C2B45'; NavActive = '#16233A'; CheckBorder = '#2A3E5E'; CheckHover = '#00F5FF'
+        ListHover = '#13203A'; FocusBorder = '#00F5FF'; Selection = '#193A55'; LogBg = '#0A101C'
+        CardBorder = '#22406B'; ListSelected = '#16324F'; MenuItemHover = '#16324F'; Thumb = '#1E5C6B'; NavActiveText = '#00F5FF'
+        Green = '#3DF5A5'; Red = '#FF5470'; Orange = '#FFC24B'
+        LogText = '#A9BCD6'; LogGray = '#64748B'; LogCyan = '#00F5FF'; LogBlue = '#7A5CFF'
+        PillOk = '#0C2A24'; PillBad = '#2A0F2A'; PillOkDot = '#3DF5A5'; PillBadDot = '#FF2BD6'
+    }
+}
+
+$script:ThemeName = ''
+$script:CurrentPalette = $script:Themes['dark']
+
+function Set-ThemeBrushVars {
+    param([hashtable]$Palette)
+    $script:BrCanvas     = Get-Brush $Palette.Canvas
+    $script:BrSurface    = Get-Brush $Palette.Surface
+    $script:BrInk        = Get-Brush $Palette.Ink
+    $script:BrBody       = Get-Brush $Palette.Body
+    $script:BrMuted      = Get-Brush $Palette.Muted
+    $script:BrGreen      = Get-Brush $Palette.Green
+    $script:BrRed        = Get-Brush $Palette.Red
+    $script:BrOrange     = Get-Brush $Palette.Orange
+    $script:BrAccent     = Get-Brush $Palette.Accent
+    $script:BrLogText    = Get-Brush $Palette.LogText
+    $script:BrLogGray    = Get-Brush $Palette.LogGray
+    $script:BrLogCyan    = Get-Brush $Palette.LogCyan
+    $script:BrLogBlue    = Get-Brush $Palette.LogBlue
+    $script:BrPillOk     = Get-Brush $Palette.PillOk
+    $script:BrPillBad    = Get-Brush $Palette.PillBad
+    $script:BrPillOkDot  = Get-Brush $Palette.PillOkDot
+    $script:BrPillBadDot = Get-Brush $Palette.PillBadDot
+}
+
+function New-NeonGradient {
+    param([string[]]$Colors)
+    $brush = New-Object Windows.Media.LinearGradientBrush
+    $brush.StartPoint = New-Object Windows.Point(0, 0)
+    $brush.EndPoint = New-Object Windows.Point(1, 0)
+    for ($i = 0; $i -lt $Colors.Count; $i++) {
+        $stop = New-Object Windows.Media.GradientStop
+        $stop.Color = (Get-Brush $Colors[$i]).Color
+        if ($Colors.Count -gt 1) { $stop.Offset = $i / ($Colors.Count - 1) }
+        [void]$brush.GradientStops.Add($stop)
+    }
+    return [Windows.Media.Brush]$brush
+}
+
+function New-Glow {
+    param([string]$Hex, [double]$Blur = 14, [double]$Opacity = 0.55)
+    $effect = New-Object Windows.Media.Effects.DropShadowEffect
+    $effect.Color = (Get-Brush $Hex).Color
+    $effect.BlurRadius = $Blur
+    $effect.ShadowDepth = 0
+    $effect.Opacity = $Opacity
+    return [Windows.Media.Effects.Effect]$effect
+}
+
+Set-ThemeBrushVars $script:CurrentPalette
+
+function Apply-Theme {
+    param([string]$Name, [switch]$Save)
+
+    if (-not $Name -or -not $script:Themes.ContainsKey($Name)) { $Name = 'dark' }
+    if ($Name -eq $script:ThemeName -and $script:Window) { return }
+
+    $palette = $script:Themes[$Name]
+    $oldPalette = $script:CurrentPalette
+
+    if ($script:Window) {
+        foreach ($key in $palette.Keys) {
+            $script:Window.Resources[$key] = Get-Brush $palette[$key]
+        }
+        $resources = $script:Window.Resources
+        if ($Name -eq 'neon') {
+            $resources['TitleBrush'] = New-NeonGradient @('#00F5FF', '#7A5CFF', '#FF2BD6')
+            $resources['HeaderLineBrush'] = New-NeonGradient @('#00F5FF', '#7A5CFF', '#FF2BD6')
+            $resources['NavLineBrush'] = New-NeonGradient @('#00F5FF', '#7A5CFF')
+            $resources['TitleGlow'] = [Windows.Media.Effects.Effect](New-Glow '#00F5FF' 16 0.55)
+            $resources['PrimaryGlow'] = [Windows.Media.Effects.Effect](New-Glow '#00F5FF' 14 0.45)
+            $resources['CheckGlow'] = [Windows.Media.Effects.Effect](New-Glow '#00F5FF' 9 0.65)
+        } else {
+            $resources['TitleBrush'] = Get-Brush $palette.Ink
+            $resources['HeaderLineBrush'] = Get-Brush '#00FFFFFF'
+            $resources['NavLineBrush'] = Get-Brush $palette.Hairline
+            $resources['TitleGlow'] = [Windows.Media.Effects.Effect](New-Glow '#000000' 0 0)
+            $resources['PrimaryGlow'] = [Windows.Media.Effects.Effect](New-Glow '#000000' 0 0)
+            $resources['CheckGlow'] = [Windows.Media.Effects.Effect](New-Glow '#000000' 0 0)
+        }
+        $script:Window.Background = Get-Brush $palette.Canvas
+    }
+
+    $script:ThemeName = $Name
+    $script:CurrentPalette = $palette
+    Set-ThemeBrushVars $palette
+
+    if ($script:Window) {
+        $themeButtons = @{ light = 'ThemeLight'; dark = 'ThemeDark'; neon = 'ThemeNeon' }
+        foreach ($key in $themeButtons.Keys) {
+            $button = $script:Window.FindName($themeButtons[$key])
+            if ($button) { $button.IsChecked = ($key -eq $Name) }
+        }
+        if (Get-Command -Name Update-LogTheme -ErrorAction SilentlyContinue) {
+            Update-LogTheme $oldPalette
+        }
+        if (Get-Command -Name Set-AdminPill -ErrorAction SilentlyContinue) {
+            Set-AdminPill ([bool](Test-IsAdmin))
+        }
+        if (Get-Command -Name Update-AllStatus -ErrorAction SilentlyContinue) {
+            try { Update-AllStatus } catch { }
+        }
+    }
+
+    if ($Save) {
+        $script:Config.Theme = $Name
+        Save-Config
+    }
+}
 
 $windowXaml = @'
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -179,7 +310,7 @@ $windowXaml = @'
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="Zapret Control — управление zapret-discord-youtube (форк Bugulmek)"
         Width="1280" Height="940" MinWidth="1080" MinHeight="760"
-        WindowStartupLocation="CenterScreen" Background="#F5F5F7"
+        WindowStartupLocation="CenterScreen" Background="#111113"
         FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="14"
         TextOptions.TextFormattingMode="Display" UseLayoutRounding="True"
         SnapsToDevicePixels="True" WindowStyle="None" ResizeMode="CanResize">
@@ -188,52 +319,80 @@ $windowXaml = @'
   </shell:WindowChrome.WindowChrome>
 
   <Window.Resources>
-    <SolidColorBrush x:Key="Canvas" Color="#F5F5F7"/>
-    <SolidColorBrush x:Key="Surface" Color="#FFFFFF"/>
-    <SolidColorBrush x:Key="Ink" Color="#1D1D1F"/>
-    <SolidColorBrush x:Key="Body" Color="#3A3A3C"/>
-    <SolidColorBrush x:Key="Muted" Color="#6E6E73"/>
-    <SolidColorBrush x:Key="Hairline" Color="#E5E5EA"/>
-    <SolidColorBrush x:Key="Field" Color="#F2F2F7"/>
-    <SolidColorBrush x:Key="FieldHover" Color="#E9E9EE"/>
-    <SolidColorBrush x:Key="Accent" Color="#0071E3"/>
-    <SolidColorBrush x:Key="Danger" Color="#D70015"/>
+    <SolidColorBrush x:Key="Canvas" Color="#111113"/>
+    <SolidColorBrush x:Key="Surface" Color="#1A1A1D"/>
+    <SolidColorBrush x:Key="Ink" Color="#F5F5F7"/>
+    <SolidColorBrush x:Key="Body" Color="#C7C7CC"/>
+    <SolidColorBrush x:Key="Muted" Color="#8E8E93"/>
+    <SolidColorBrush x:Key="Hairline" Color="#2A2A2F"/>
+    <SolidColorBrush x:Key="Field" Color="#26262A"/>
+    <SolidColorBrush x:Key="FieldHover" Color="#303036"/>
+    <SolidColorBrush x:Key="Accent" Color="#0A84FF"/>
+    <SolidColorBrush x:Key="AccentText" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="Danger" Color="#FF453A"/>
+    <SolidColorBrush x:Key="DangerSoft" Color="#33191A"/>
+    <SolidColorBrush x:Key="WindowBorder" Color="#2A2A2F"/>
+    <SolidColorBrush x:Key="NavActive" Color="#303036"/>
+    <SolidColorBrush x:Key="CheckBorder" Color="#56565C"/>
+    <SolidColorBrush x:Key="CheckHover" Color="#8E8E93"/>
+    <SolidColorBrush x:Key="ListHover" Color="#202024"/>
+    <SolidColorBrush x:Key="FocusBorder" Color="#0A84FF"/>
+    <SolidColorBrush x:Key="Selection" Color="#2F4C73"/>
+    <SolidColorBrush x:Key="LogBg" Color="#151517"/>
+    <SolidColorBrush x:Key="Green" Color="#30D158"/>
+    <SolidColorBrush x:Key="Red" Color="#FF453A"/>
+    <SolidColorBrush x:Key="Orange" Color="#FF9F0A"/>
+    <SolidColorBrush x:Key="PillOk" Color="#17301F"/>
+    <SolidColorBrush x:Key="PillBad" Color="#331715"/>
+    <SolidColorBrush x:Key="PillOkDot" Color="#34C759"/>
+    <SolidColorBrush x:Key="PillBadDot" Color="#FF453A"/>
+    <SolidColorBrush x:Key="CardBorder" Color="#2A2A2F"/>
+    <SolidColorBrush x:Key="TitleBrush" Color="#F5F5F7"/>
+    <SolidColorBrush x:Key="NavActiveText" Color="#F5F5F7"/>
+    <SolidColorBrush x:Key="Thumb" Color="#56565C"/>
+    <SolidColorBrush x:Key="ListSelected" Color="#303036"/>
+    <SolidColorBrush x:Key="MenuItemHover" Color="#303036"/>
+    <SolidColorBrush x:Key="HeaderLineBrush" Color="Transparent"/>
+    <SolidColorBrush x:Key="NavLineBrush" Color="#2A2A2F"/>
+    <DropShadowEffect x:Key="TitleGlow" BlurRadius="0" ShadowDepth="0" Opacity="0"/>
+    <DropShadowEffect x:Key="PrimaryGlow" BlurRadius="0" ShadowDepth="0" Opacity="0"/>
+    <DropShadowEffect x:Key="CheckGlow" BlurRadius="0" ShadowDepth="0" Opacity="0"/>
 
     <Style x:Key="ZcFocus">
       <Setter Property="Control.Template">
         <Setter.Value>
           <ControlTemplate>
-            <Border Margin="2" CornerRadius="10" BorderBrush="#7FB6F0" BorderThickness="2"/>
+            <Border Margin="2" CornerRadius="10" BorderBrush="{DynamicResource FocusBorder}" BorderThickness="2"/>
           </ControlTemplate>
         </Setter.Value>
       </Setter>
     </Style>
 
     <Style x:Key="ZcCard" TargetType="Border">
-      <Setter Property="Background" Value="{StaticResource Surface}"/>
-      <Setter Property="BorderBrush" Value="{StaticResource Hairline}"/>
+      <Setter Property="Background" Value="{DynamicResource Surface}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource CardBorder}"/>
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="CornerRadius" Value="14"/>
-      <Setter Property="Padding" Value="20"/>
-      <Setter Property="Margin" Value="0,0,0,14"/>
+      <Setter Property="Padding" Value="18"/>
+      <Setter Property="Margin" Value="0,0,0,12"/>
     </Style>
 
     <Style x:Key="ZcCardTitle" TargetType="TextBlock">
-      <Setter Property="FontSize" Value="15"/>
+      <Setter Property="FontSize" Value="14.5"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+      <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
     </Style>
 
     <Style x:Key="ZcHint" TargetType="TextBlock">
       <Setter Property="FontSize" Value="12.5"/>
-      <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+      <Setter Property="Foreground" Value="{DynamicResource Muted}"/>
       <Setter Property="TextWrapping" Value="Wrap"/>
       <Setter Property="LineHeight" Value="18"/>
     </Style>
 
     <Style x:Key="ZcBody" TargetType="TextBlock">
       <Setter Property="FontSize" Value="13"/>
-      <Setter Property="Foreground" Value="{StaticResource Body}"/>
+      <Setter Property="Foreground" Value="{DynamicResource Body}"/>
       <Setter Property="TextWrapping" Value="Wrap"/>
       <Setter Property="LineHeight" Value="20"/>
     </Style>
@@ -241,14 +400,14 @@ $windowXaml = @'
     <Style x:Key="ZcFieldLabel" TargetType="TextBlock">
       <Setter Property="FontSize" Value="11.5"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+      <Setter Property="Foreground" Value="{DynamicResource Muted}"/>
       <Setter Property="Margin" Value="1,0,0,6"/>
     </Style>
 
     <Style x:Key="ZcPageTitle" TargetType="TextBlock">
-      <Setter Property="FontSize" Value="21"/>
+      <Setter Property="FontSize" Value="19"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+      <Setter Property="Foreground" Value="{DynamicResource TitleBrush}"/>
     </Style>
 
     <Style x:Key="ZcButtonBase" TargetType="Button">
@@ -263,7 +422,7 @@ $windowXaml = @'
         <Setter.Value>
           <ControlTemplate TargetType="Button">
             <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="9"
-                    Padding="{TemplateBinding Padding}">
+                    Padding="{TemplateBinding Padding}" Effect="{TemplateBinding Effect}">
               <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
                                 TextElement.Foreground="{TemplateBinding Foreground}"/>
             </Border>
@@ -284,23 +443,24 @@ $windowXaml = @'
     </Style>
 
     <Style x:Key="ZcPrimary" TargetType="Button" BasedOn="{StaticResource ZcButtonBase}">
-      <Setter Property="Background" Value="{StaticResource Accent}"/>
-      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="Background" Value="{DynamicResource Accent}"/>
+      <Setter Property="Foreground" Value="{DynamicResource AccentText}"/>
+      <Setter Property="Effect" Value="{DynamicResource PrimaryGlow}"/>
     </Style>
 
     <Style x:Key="ZcSecondary" TargetType="Button" BasedOn="{StaticResource ZcButtonBase}">
-      <Setter Property="Background" Value="{StaticResource Field}"/>
-      <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+      <Setter Property="Background" Value="{DynamicResource Field}"/>
+      <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
     </Style>
 
     <Style x:Key="ZcDangerText" TargetType="Button" BasedOn="{StaticResource ZcButtonBase}">
-      <Setter Property="Background" Value="#FDECEB"/>
-      <Setter Property="Foreground" Value="{StaticResource Danger}"/>
+      <Setter Property="Background" Value="{DynamicResource DangerSoft}"/>
+      <Setter Property="Foreground" Value="{DynamicResource Danger}"/>
     </Style>
 
     <Style x:Key="ZcGhost" TargetType="Button" BasedOn="{StaticResource ZcButtonBase}">
       <Setter Property="Background" Value="Transparent"/>
-      <Setter Property="Foreground" Value="{StaticResource Accent}"/>
+      <Setter Property="Foreground" Value="{DynamicResource Accent}"/>
       <Setter Property="FontWeight" Value="Normal"/>
       <Setter Property="Height" Value="30"/>
       <Setter Property="Padding" Value="8,0"/>
@@ -330,7 +490,7 @@ $windowXaml = @'
       <Setter Property="Width" Value="40"/>
       <Setter Property="Height" Value="30"/>
       <Setter Property="Background" Value="Transparent"/>
-      <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+      <Setter Property="Foreground" Value="{DynamicResource Muted}"/>
       <Setter Property="FontSize" Value="13"/>
       <Setter Property="Cursor" Value="Hand"/>
       <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
@@ -343,7 +503,7 @@ $windowXaml = @'
             </Border>
             <ControlTemplate.Triggers>
               <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="Bd" Property="Background" Value="{StaticResource FieldHover}"/>
+                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource FieldHover}"/>
               </Trigger>
               <Trigger Property="IsPressed" Value="True">
                 <Setter TargetName="Bd" Property="Opacity" Value="0.65"/>
@@ -355,7 +515,7 @@ $windowXaml = @'
     </Style>
 
     <Style x:Key="ZcNav" TargetType="RadioButton">
-      <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+      <Setter Property="Foreground" Value="{DynamicResource Muted}"/>
       <Setter Property="FontSize" Value="13"/>
       <Setter Property="Cursor" Value="Hand"/>
       <Setter Property="FocusVisualStyle" Value="{StaticResource ZcFocus}"/>
@@ -368,11 +528,11 @@ $windowXaml = @'
             </Border>
             <ControlTemplate.Triggers>
               <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="Bd" Property="Background" Value="{StaticResource FieldHover}"/>
+                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource FieldHover}"/>
               </Trigger>
               <Trigger Property="IsChecked" Value="True">
-                <Setter TargetName="Bd" Property="Background" Value="{StaticResource Surface}"/>
-                <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource NavActive}"/>
+                <Setter Property="Foreground" Value="{DynamicResource NavActiveText}"/>
                 <Setter Property="FontWeight" Value="SemiBold"/>
                 <Setter TargetName="Bd" Property="Effect">
                   <Setter.Value>
@@ -387,8 +547,35 @@ $windowXaml = @'
       </Setter>
     </Style>
 
+    <Style x:Key="ZcTheme" TargetType="RadioButton">
+      <Setter Property="Foreground" Value="{DynamicResource Muted}"/>
+      <Setter Property="FontSize" Value="11.5"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="RadioButton">
+            <Border x:Name="Bd" CornerRadius="7" Background="Transparent" Padding="10,4">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                TextElement.Foreground="{TemplateBinding Foreground}"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource FieldHover}"/>
+              </Trigger>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource NavActive}"/>
+                <Setter Property="Foreground" Value="{DynamicResource NavActiveText}"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
     <Style x:Key="ZcCheck" TargetType="CheckBox">
-      <Setter Property="Foreground" Value="{StaticResource Body}"/>
+      <Setter Property="Foreground" Value="{DynamicResource Body}"/>
       <Setter Property="FontSize" Value="13"/>
       <Setter Property="Cursor" Value="Hand"/>
       <Setter Property="FocusVisualStyle" Value="{StaticResource ZcFocus}"/>
@@ -397,11 +584,12 @@ $windowXaml = @'
           <ControlTemplate TargetType="CheckBox">
             <StackPanel Orientation="Horizontal" Background="Transparent">
               <Border x:Name="Box" Width="18" Height="18" CornerRadius="5"
-                      Background="White" BorderBrush="#C7C7CC" BorderThickness="1.5"
+                      Background="{DynamicResource Surface}" BorderBrush="{DynamicResource CheckBorder}" BorderThickness="1.5"
                       VerticalAlignment="Center">
                 <Grid>
-                  <Path x:Name="Check" Data="M 3.5 8.5 L 7 12 L 14 4.5"
-                        Stroke="White" StrokeThickness="2" StrokeStartLineCap="Round"
+                  <Path x:Name="Check" Data="M 0 4.5 L 4 8.5 L 12 0"
+                        Width="12" Height="9" Stretch="Uniform"
+                        Stroke="{DynamicResource AccentText}" StrokeThickness="2" StrokeStartLineCap="Round"
                         StrokeEndLineCap="Round" StrokeLineJoin="Round"
                         Visibility="Collapsed" HorizontalAlignment="Center"
                         VerticalAlignment="Center"/>
@@ -412,16 +600,17 @@ $windowXaml = @'
             </StackPanel>
             <ControlTemplate.Triggers>
               <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="Box" Property="BorderBrush" Value="#8E8E93"/>
+                <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource CheckHover}"/>
               </Trigger>
               <Trigger Property="IsChecked" Value="True">
-                <Setter TargetName="Box" Property="Background" Value="{StaticResource Accent}"/>
-                <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource Accent}"/>
+                <Setter TargetName="Box" Property="Background" Value="{DynamicResource Accent}"/>
+                <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource Accent}"/>
+                <Setter TargetName="Box" Property="Effect" Value="{DynamicResource CheckGlow}"/>
                 <Setter TargetName="Check" Property="Visibility" Value="Visible"/>
               </Trigger>
               <Trigger Property="IsEnabled" Value="False">
                 <Setter TargetName="Box" Property="Opacity" Value="0.45"/>
-                <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+                <Setter Property="Foreground" Value="{DynamicResource Muted}"/>
               </Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
@@ -432,7 +621,7 @@ $windowXaml = @'
     <Style x:Key="ZcListItem" TargetType="ListBoxItem">
       <Setter Property="Padding" Value="12,9"/>
       <Setter Property="Margin" Value="0,1"/>
-      <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+      <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
       <Setter Property="FontSize" Value="13"/>
       <Setter Property="Cursor" Value="Hand"/>
       <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
@@ -441,14 +630,20 @@ $windowXaml = @'
           <ControlTemplate TargetType="ListBoxItem">
             <Border x:Name="Bd" Background="Transparent" CornerRadius="8"
                     Padding="{TemplateBinding Padding}">
-              <ContentPresenter VerticalAlignment="Center"/>
+              <Grid>
+                <Border x:Name="Mark" Width="2" HorizontalAlignment="Left" Margin="-12,2,0,2"
+                        CornerRadius="1" Background="{DynamicResource Accent}" Visibility="Collapsed"/>
+                <ContentPresenter VerticalAlignment="Center"/>
+              </Grid>
             </Border>
             <ControlTemplate.Triggers>
               <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="Bd" Property="Background" Value="#F7F7F9"/>
+                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ListHover}"/>
               </Trigger>
               <Trigger Property="IsSelected" Value="True">
-                <Setter TargetName="Bd" Property="Background" Value="{StaticResource Field}"/>
+                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ListSelected}"/>
+                <Setter TargetName="Mark" Property="Visibility" Value="Visible"/>
+                <Setter Property="Foreground" Value="{DynamicResource NavActiveText}"/>
                 <Setter Property="FontWeight" Value="SemiBold"/>
               </Trigger>
             </ControlTemplate.Triggers>
@@ -469,13 +664,13 @@ $windowXaml = @'
     <Style x:Key="ZcTextInput" TargetType="TextBox">
       <Setter Property="Height" Value="36"/>
       <Setter Property="Padding" Value="0"/>
-      <Setter Property="Background" Value="{StaticResource Field}"/>
-      <Setter Property="BorderBrush" Value="{StaticResource Hairline}"/>
+      <Setter Property="Background" Value="{DynamicResource Field}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource Hairline}"/>
       <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+      <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
       <Setter Property="FontSize" Value="13"/>
-      <Setter Property="CaretBrush" Value="{StaticResource Ink}"/>
-      <Setter Property="SelectionBrush" Value="#B3D7F7"/>
+      <Setter Property="CaretBrush" Value="{DynamicResource Ink}"/>
+      <Setter Property="SelectionBrush" Value="{DynamicResource Selection}"/>
       <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
       <Setter Property="Template">
         <Setter.Value>
@@ -489,7 +684,7 @@ $windowXaml = @'
             </Border>
             <ControlTemplate.Triggers>
               <Trigger Property="IsKeyboardFocusWithin" Value="True">
-                <Setter TargetName="Bd" Property="BorderBrush" Value="#9CC7F2"/>
+                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource FocusBorder}"/>
               </Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
@@ -514,7 +709,7 @@ $windowXaml = @'
             </Border>
             <ControlTemplate.Triggers>
               <Trigger Property="IsKeyboardFocusWithin" Value="True">
-                <Setter TargetName="Bd" Property="BorderBrush" Value="#9CC7F2"/>
+                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource FocusBorder}"/>
               </Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
@@ -525,7 +720,7 @@ $windowXaml = @'
     <Style x:Key="ZcComboItem" TargetType="ComboBoxItem">
       <Setter Property="Padding" Value="10,7"/>
       <Setter Property="FontSize" Value="13"/>
-      <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+      <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="ComboBoxItem">
@@ -535,10 +730,10 @@ $windowXaml = @'
             </Border>
             <ControlTemplate.Triggers>
               <Trigger Property="IsHighlighted" Value="True">
-                <Setter TargetName="Bd" Property="Background" Value="{StaticResource Field}"/>
+                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource MenuItemHover}"/>
               </Trigger>
               <Trigger Property="IsSelected" Value="True">
-                <Setter TargetName="Bd" Property="Background" Value="{StaticResource Field}"/>
+                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource MenuItemHover}"/>
                 <Setter Property="FontWeight" Value="SemiBold"/>
               </Trigger>
             </ControlTemplate.Triggers>
@@ -551,7 +746,7 @@ $windowXaml = @'
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="Thumb">
-            <Border Background="#C7C7CC" CornerRadius="4" Margin="2"/>
+            <Border Background="{DynamicResource Thumb}" CornerRadius="4" Margin="2"/>
           </ControlTemplate>
         </Setter.Value>
       </Setter>
@@ -598,9 +793,9 @@ $windowXaml = @'
     <Style x:Key="ZcCombo" TargetType="ComboBox">
       <Setter Property="Height" Value="36"/>
       <Setter Property="FontSize" Value="13"/>
-      <Setter Property="Foreground" Value="{StaticResource Ink}"/>
-      <Setter Property="Background" Value="{StaticResource Field}"/>
-      <Setter Property="BorderBrush" Value="{StaticResource Hairline}"/>
+      <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
+      <Setter Property="Background" Value="{DynamicResource Field}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource Hairline}"/>
       <Setter Property="ItemContainerStyle" Value="{StaticResource ZcComboItem}"/>
       <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
       <Setter Property="Template">
@@ -613,7 +808,7 @@ $windowXaml = @'
               <ContentPresenter Content="{TemplateBinding SelectionBoxItem}"
                                 Margin="12,0,32,0" VerticalAlignment="Center"
                                 IsHitTestVisible="False"/>
-              <Path Data="M 0 0 L 4 4 L 8 0" Stroke="{StaticResource Muted}"
+              <Path Data="M 0 0 L 4 4 L 8 0" Stroke="{DynamicResource Muted}"
                     StrokeThickness="1.6" HorizontalAlignment="Right"
                     VerticalAlignment="Center" Margin="0,0,13,0"
                     IsHitTestVisible="False"/>
@@ -628,7 +823,7 @@ $windowXaml = @'
               </ToggleButton>
               <Popup IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom"
                      AllowsTransparency="True" PopupAnimation="Fade" Focusable="False">
-                <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Hairline}"
+                <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Hairline}"
                         BorderThickness="1" CornerRadius="10" Margin="0,4,0,0"
                         MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
                         MaxHeight="280">
@@ -640,7 +835,7 @@ $windowXaml = @'
             </Grid>
             <ControlTemplate.Triggers>
               <Trigger Property="IsKeyboardFocusWithin" Value="True">
-                <Setter TargetName="Bd" Property="BorderBrush" Value="#9CC7F2"/>
+                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource FocusBorder}"/>
               </Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
@@ -649,18 +844,18 @@ $windowXaml = @'
     </Style>
   </Window.Resources>
 
-  <Border BorderBrush="#D6D6DB" BorderThickness="1" Background="{StaticResource Canvas}">
+  <Border BorderBrush="{DynamicResource WindowBorder}" BorderThickness="1" Background="{DynamicResource Canvas}">
     <Grid>
       <Grid.RowDefinitions>
         <RowDefinition Height="92"/>
-        <RowDefinition Height="132"/>
+        <RowDefinition Height="76"/>
         <RowDefinition Height="*"/>
-        <RowDefinition Height="188"/>
-        <RowDefinition Height="30"/>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="34"/>
       </Grid.RowDefinitions>
 
       <!-- Шапка -->
-      <Grid x:Name="HeaderBar" Grid.Row="0" Background="{StaticResource Canvas}">
+      <Grid x:Name="HeaderBar" Grid.Row="0" Background="{DynamicResource Canvas}">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="*"/>
           <ColumnDefinition Width="Auto"/>
@@ -668,25 +863,37 @@ $windowXaml = @'
         <StackPanel Grid.Column="0" Margin="30,18,0,0" VerticalAlignment="Center">
           <StackPanel Orientation="Horizontal">
             <TextBlock Text="Zapret Control" FontSize="26" FontWeight="SemiBold"
-                       Foreground="{StaticResource Ink}" VerticalAlignment="Center"/>
-            <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Hairline}"
+                       Foreground="{DynamicResource TitleBrush}" Effect="{DynamicResource TitleGlow}"
+                       VerticalAlignment="Center"/>
+            <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Hairline}"
                     BorderThickness="1" CornerRadius="999" Padding="9,2" Margin="12,5,0,0"
                     VerticalAlignment="Center">
-              <TextBlock x:Name="VersionChipText" Text="1.1.0" FontSize="11.5"
-                         FontWeight="SemiBold" Foreground="{StaticResource Muted}"/>
+              <TextBlock x:Name="VersionChipText" Text="1.2.0" FontSize="11.5"
+                         FontWeight="SemiBold" Foreground="{DynamicResource Muted}"/>
             </Border>
           </StackPanel>
-          <TextBlock Text="Управление zapret-discord-youtube · тест стратегий · автообновление с GitHub"
-                     FontSize="12.5" Foreground="{StaticResource Muted}" Margin="1,5,0,0"/>
+          <TextBlock x:Name="HeaderSubtitle" Text="Управление zapret-discord-youtube"
+                     FontSize="12.5" Foreground="{DynamicResource Muted}" Margin="1,5,0,0"/>
         </StackPanel>
-        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,14,14,0">
-          <Border x:Name="AdminPill" Background="#E8F6EC" CornerRadius="999"
-                  Padding="12,6" Margin="0,3,14,0" VerticalAlignment="Center">
+        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,14,0">
+          <Border Background="{DynamicResource Field}" CornerRadius="9"
+                  Padding="2" Margin="0,0,12,0" VerticalAlignment="Center">
             <StackPanel Orientation="Horizontal">
-              <Ellipse x:Name="AdminPillDot" Width="7" Height="7" Fill="#34C759"
+              <RadioButton x:Name="ThemeLight" Content="Светлая" GroupName="Theme"
+                           Style="{StaticResource ZcTheme}" Tag="light"/>
+              <RadioButton x:Name="ThemeDark" Content="Тёмная" GroupName="Theme"
+                           Style="{StaticResource ZcTheme}" Tag="dark"/>
+              <RadioButton x:Name="ThemeNeon" Content="Неон" GroupName="Theme"
+                           Style="{StaticResource ZcTheme}" Tag="neon"/>
+            </StackPanel>
+          </Border>
+          <Border x:Name="AdminPill" Background="{DynamicResource PillOk}" CornerRadius="999"
+                  Padding="12,6" Margin="0,0,12,0" VerticalAlignment="Center">
+            <StackPanel Orientation="Horizontal">
+              <Ellipse x:Name="AdminPillDot" Width="7" Height="7" Fill="{DynamicResource PillOkDot}"
                        VerticalAlignment="Center"/>
               <TextBlock x:Name="AdminPillText" Text="администратор" FontSize="12"
-                         FontWeight="SemiBold" Foreground="{StaticResource Ink}"
+                         FontWeight="SemiBold" Foreground="{DynamicResource Ink}"
                          Margin="7,0,0,0" VerticalAlignment="Center"/>
             </StackPanel>
           </Border>
@@ -695,14 +902,12 @@ $windowXaml = @'
         </StackPanel>
       </Grid>
 
+      <Border Grid.Row="0" Height="1" VerticalAlignment="Bottom"
+              Background="{DynamicResource HeaderLineBrush}"/>
+
       <!-- Состояние -->
-      <Border Grid.Row="1" Margin="30,6,30,0" Style="{StaticResource ZcCard}" Padding="0">
-        <Grid>
-          <Grid.RowDefinitions>
-            <RowDefinition Height="62"/>
-            <RowDefinition Height="1"/>
-            <RowDefinition Height="62"/>
-          </Grid.RowDefinitions>
+      <Border Grid.Row="1" Margin="30,4,30,0" Style="{StaticResource ZcCard}" Padding="0">
+        <Grid Height="64">
           <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
             <ColumnDefinition Width="*"/>
@@ -710,72 +915,41 @@ $windowXaml = @'
             <ColumnDefinition Width="*"/>
           </Grid.ColumnDefinitions>
 
-          <Border Grid.Row="0" Grid.Column="0" BorderBrush="{StaticResource Hairline}" BorderThickness="0,0,1,0" Padding="22,0">
+          <Border Grid.Row="0" Grid.Column="0" BorderBrush="{DynamicResource Hairline}" BorderThickness="0,0,1,0" Padding="22,0">
             <StackPanel VerticalAlignment="Center">
               <TextBlock Text="Служба zapret" Style="{StaticResource ZcFieldLabel}" Margin="0,0,0,3"/>
               <TextBlock x:Name="StatusService" Text="—" FontSize="15" FontWeight="SemiBold"
-                         Foreground="{StaticResource Ink}" TextTrimming="CharacterEllipsis"/>
+                         Foreground="{DynamicResource Ink}" TextTrimming="CharacterEllipsis"/>
             </StackPanel>
           </Border>
-          <Border Grid.Row="0" Grid.Column="1" BorderBrush="{StaticResource Hairline}" BorderThickness="0,0,1,0" Padding="22,0">
+          <Border Grid.Row="0" Grid.Column="1" BorderBrush="{DynamicResource Hairline}" BorderThickness="0,0,1,0" Padding="22,0">
             <StackPanel VerticalAlignment="Center">
               <TextBlock Text="winws.exe" Style="{StaticResource ZcFieldLabel}" Margin="0,0,0,3"/>
               <TextBlock x:Name="StatusWinws" Text="—" FontSize="15" FontWeight="SemiBold"
-                         Foreground="{StaticResource Ink}" TextTrimming="CharacterEllipsis"/>
+                         Foreground="{DynamicResource Ink}" TextTrimming="CharacterEllipsis"/>
             </StackPanel>
           </Border>
-          <Border Grid.Row="0" Grid.Column="2" BorderBrush="{StaticResource Hairline}" BorderThickness="0,0,1,0" Padding="22,0">
+          <Border Grid.Row="0" Grid.Column="2" BorderBrush="{DynamicResource Hairline}" BorderThickness="0,0,1,0" Padding="22,0">
             <StackPanel VerticalAlignment="Center">
               <TextBlock Text="Стратегия службы" Style="{StaticResource ZcFieldLabel}" Margin="0,0,0,3"/>
               <TextBlock x:Name="StatusStrategy" Text="—" FontSize="15" FontWeight="SemiBold"
-                         Foreground="{StaticResource Ink}" TextTrimming="CharacterEllipsis"/>
+                         Foreground="{DynamicResource Ink}" TextTrimming="CharacterEllipsis"/>
             </StackPanel>
           </Border>
           <Border Grid.Row="0" Grid.Column="3" Padding="22,0">
             <StackPanel VerticalAlignment="Center">
               <TextBlock Text="IPSet" Style="{StaticResource ZcFieldLabel}" Margin="0,0,0,3"/>
               <TextBlock x:Name="StatusIpset" Text="—" FontSize="15" FontWeight="SemiBold"
-                         Foreground="{StaticResource Ink}" TextTrimming="CharacterEllipsis"/>
-            </StackPanel>
-          </Border>
-
-          <Border Grid.Row="1" Grid.ColumnSpan="4" Background="{StaticResource Hairline}" Margin="22,0,22,0"/>
-
-          <Border Grid.Row="2" Grid.Column="0" BorderBrush="{StaticResource Hairline}" BorderThickness="0,0,1,0" Padding="22,0">
-            <StackPanel VerticalAlignment="Center">
-              <TextBlock Text="Игровой фильтр" Style="{StaticResource ZcFieldLabel}" Margin="0,0,0,3"/>
-              <TextBlock x:Name="StatusGame" Text="—" FontSize="15" FontWeight="SemiBold"
-                         Foreground="{StaticResource Ink}" TextTrimming="CharacterEllipsis"/>
-            </StackPanel>
-          </Border>
-          <Border Grid.Row="2" Grid.Column="1" BorderBrush="{StaticResource Hairline}" BorderThickness="0,0,1,0" Padding="22,0">
-            <StackPanel VerticalAlignment="Center">
-              <TextBlock Text="Обновление .bat" Style="{StaticResource ZcFieldLabel}" Margin="0,0,0,3"/>
-              <TextBlock x:Name="StatusUpdates" Text="—" FontSize="15" FontWeight="SemiBold"
-                         Foreground="{StaticResource Ink}" TextTrimming="CharacterEllipsis"/>
-            </StackPanel>
-          </Border>
-          <Border Grid.Row="2" Grid.Column="2" BorderBrush="{StaticResource Hairline}" BorderThickness="0,0,1,0" Padding="22,0">
-            <StackPanel VerticalAlignment="Center">
-              <TextBlock Text="Версия пакета" Style="{StaticResource ZcFieldLabel}" Margin="0,0,0,3"/>
-              <TextBlock x:Name="StatusVersion" Text="—" FontSize="15" FontWeight="SemiBold"
-                         Foreground="{StaticResource Ink}" TextTrimming="CharacterEllipsis"/>
-            </StackPanel>
-          </Border>
-          <Border Grid.Row="2" Grid.Column="3" Padding="22,0">
-            <StackPanel VerticalAlignment="Center">
-              <TextBlock Text="Права" Style="{StaticResource ZcFieldLabel}" Margin="0,0,0,3"/>
-              <TextBlock x:Name="StatusAdmin" Text="—" FontSize="15" FontWeight="SemiBold"
-                         Foreground="{StaticResource Ink}" TextTrimming="CharacterEllipsis"/>
+                         Foreground="{DynamicResource Ink}" TextTrimming="CharacterEllipsis"/>
             </StackPanel>
           </Border>
         </Grid>
       </Border>
 
       <!-- Тело -->
-      <Grid Grid.Row="2" Margin="30,16,30,0">
+      <Grid Grid.Row="2" Margin="30,12,30,0">
         <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="330"/>
+          <ColumnDefinition Width="320"/>
           <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
@@ -790,7 +964,7 @@ $windowXaml = @'
             </Grid.RowDefinitions>
             <TextBlock Grid.Row="0" Text="Стратегии" Style="{StaticResource ZcCardTitle}" Margin="18,16,18,0"/>
             <TextBlock Grid.Row="1" Text="Двойной клик — запуск" Style="{StaticResource ZcHint}" Margin="18,3,18,10"/>
-            <ListBox x:Name="LstStrategies" Grid.Row="2" Style="{StaticResource ZcList}" Margin="10,0,10,0"/>
+            <ListBox x:Name="LstStrategies" Grid.Row="2" Style="{StaticResource ZcList}" Margin="10,0,10,8"/>
             <TextBlock x:Name="LblServiceUsing" Grid.Row="3" Text="Служба использует: —"
                        Style="{StaticResource ZcHint}" Margin="19,8,19,10" TextTrimming="CharacterEllipsis"/>
             <Grid Grid.Row="4" Margin="10,0,10,12">
@@ -810,7 +984,7 @@ $windowXaml = @'
                       Style="{StaticResource ZcSecondarySmall}" Margin="0,0,5,0"/>
               <Button x:Name="BtnRemove" Grid.Row="1" Grid.Column="1" Content="Удалить службу"
                       Style="{StaticResource ZcSecondarySmall}" Margin="5,0,0,0"
-                      Foreground="{StaticResource Danger}"/>
+                      Foreground="{DynamicResource Danger}"/>
             </Grid>
           </Grid>
         </Border>
@@ -822,17 +996,17 @@ $windowXaml = @'
               <RowDefinition Height="1"/>
               <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
-            <Border Grid.Row="0" Margin="14,9,14,7" Background="{StaticResource Field}"
+            <Border Grid.Row="0" Margin="14,9,14,7" Background="{DynamicResource Field}"
                     CornerRadius="10" Padding="3" HorizontalAlignment="Left">
               <StackPanel Orientation="Horizontal">
                 <RadioButton x:Name="NavService" Content="Служба" GroupName="Nav" IsChecked="True" Style="{StaticResource ZcNav}" Tag="0"/>
                 <RadioButton x:Name="NavSettings" Content="Настройки" GroupName="Nav" Style="{StaticResource ZcNav}" Tag="1"/>
                 <RadioButton x:Name="NavTools" Content="Инструменты" GroupName="Nav" Style="{StaticResource ZcNav}" Tag="2"/>
-                <RadioButton x:Name="NavTests" Content="Тест стратегий" GroupName="Nav" Style="{StaticResource ZcNav}" Tag="3"/>
+                <RadioButton x:Name="NavTests" Content="Тест" GroupName="Nav" Style="{StaticResource ZcNav}" Tag="3"/>
                 <RadioButton x:Name="NavUpdate" Content="Обновление" GroupName="Nav" Style="{StaticResource ZcNav}" Tag="4"/>
               </StackPanel>
             </Border>
-            <Border Grid.Row="1" Background="{StaticResource Hairline}"/>
+            <Border Grid.Row="1" Background="{DynamicResource NavLineBrush}"/>
             <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
               <Grid Margin="22,18,22,20">
 
@@ -844,7 +1018,7 @@ $windowXaml = @'
                   <Border Style="{StaticResource ZcCard}">
                     <StackPanel>
                       <TextBlock Text="Служба Windows «zapret»" Style="{StaticResource ZcCardTitle}"/>
-                      <TextBlock Text="Служба закрепляет выбранную стратегию в системе и запускает её при старте Windows — до входа в учётную запись."
+                      <TextBlock Text="Закрепляет стратегию в системе и запускает её при старте Windows."
                                  Style="{StaticResource ZcHint}" Margin="0,6,0,16"/>
                       <CheckBox x:Name="ChkAutostart" Content="Запускать службу автоматически при старте Windows"
                                 Style="{StaticResource ZcCheck}"/>
@@ -853,24 +1027,12 @@ $windowXaml = @'
                                 Style="{StaticResource ZcSecondary}" Margin="0,0,10,10"/>
                         <Button x:Name="BtnRemoveService" Content="Удалить службу" Width="172"
                                 Style="{StaticResource ZcSecondary}" Margin="0,0,10,10"
-                                Foreground="{StaticResource Danger}"/>
+                                Foreground="{DynamicResource Danger}"/>
                         <Button x:Name="BtnServiceBat" Content="Меню service.bat" Width="172"
                                 Style="{StaticResource ZcSecondary}" Margin="0,0,10,10"/>
                         <Button x:Name="BtnOpenRoot" Content="Папка zapret" Width="152"
                                 Style="{StaticResource ZcSecondary}" Margin="0,0,0,10"/>
                       </WrapPanel>
-                    </StackPanel>
-                  </Border>
-
-                  <Border Style="{StaticResource ZcCard}" Margin="0">
-                    <StackPanel>
-                      <TextBlock Text="Как это работает" Style="{StaticResource ZcCardTitle}"/>
-                      <TextBlock Style="{StaticResource ZcBody}" Margin="0,10,0,0"
-                                 Text="«Запустить» слева поднимает стратегию вручную: процесс winws.exe работает, пока вы его не остановите. «Установить службу» закрепляет ту же стратегию в системе и включает автозапуск."/>
-                      <TextBlock Style="{StaticResource ZcBody}" Margin="0,10,0,0"
-                                 Text="Если обход не включается, откройте «Инструменты» → «Диагностика». Она проверяет права, драйвер WinDivert, конфликтующие службы, системный прокси и файл hosts."/>
-                      <TextBlock Style="{StaticResource ZcBody}" Margin="0,10,0,0"
-                                 Text="Для ручного управления пакетом есть «Меню service.bat» — это штатное консольное меню zapret."/>
                     </StackPanel>
                   </Border>
                 </StackPanel>
@@ -883,7 +1045,7 @@ $windowXaml = @'
                   <Border Style="{StaticResource ZcCard}">
                     <StackPanel>
                       <TextBlock Text="Игровой фильтр" Style="{StaticResource ZcCardTitle}"/>
-                      <TextBlock Text="Сужает порты, к которым применяется обход. Выключен — фильтр не используется."
+                      <TextBlock Text="Сужает порты, к которым применяется обход."
                                  Style="{StaticResource ZcHint}" Margin="0,6,0,16"/>
                       <Grid>
                         <Grid.ColumnDefinitions>
@@ -915,7 +1077,7 @@ $windowXaml = @'
                         <Button x:Name="BtnApplyGame" Grid.Column="6" Content="Применить" Width="130"
                                 Style="{StaticResource ZcPrimary}" VerticalAlignment="Bottom"/>
                       </Grid>
-                      <TextBlock Text="Формат: 1024-65535 или 1024-1934,1936-65535. Изменения применятся после перезапуска zapret."
+                      <TextBlock Text="Формат: 1024-65535 или 1024-1934,1936-65535. Нужен перезапуск zapret."
                                  Style="{StaticResource ZcHint}" Margin="0,14,0,0"/>
                     </StackPanel>
                   </Border>
@@ -923,7 +1085,7 @@ $windowXaml = @'
                   <Border Style="{StaticResource ZcCard}">
                     <StackPanel>
                       <TextBlock Text="IPSet-фильтр" Style="{StaticResource ZcCardTitle}"/>
-                      <TextBlock Text="loaded — фильтр по списку, none — только исключения, any — без списка IPSet."
+                      <TextBlock Text="loaded — по списку, none — только исключения, any — без списка."
                                  Style="{StaticResource ZcHint}" Margin="0,6,0,16"/>
                       <StackPanel Orientation="Horizontal">
                         <StackPanel Width="240">
@@ -939,7 +1101,7 @@ $windowXaml = @'
                         <Button x:Name="BtnUpdateIpset" Content="Обновить IPSet" Width="160"
                                 Style="{StaticResource ZcSecondary}" Margin="0,20,0,0" VerticalAlignment="Top"/>
                       </StackPanel>
-                      <TextBlock Text="Обновление скачивает свежий список с GitHub и заменяет lists\ipset-all.txt."
+                      <TextBlock Text="Скачивает свежий список с GitHub в lists\ipset-all.txt."
                                  Style="{StaticResource ZcHint}" Margin="0,14,0,0"/>
                     </StackPanel>
                   </Border>
@@ -949,7 +1111,7 @@ $windowXaml = @'
                       <TextBlock Text="Автопроверка обновлений пакета" Style="{StaticResource ZcCardTitle}"/>
                       <CheckBox x:Name="ChkBatUpdates" Style="{StaticResource ZcCheck}" Margin="0,12,0,0"
                                 Content="Проверять обновления при запуске general*.bat"/>
-                      <TextBlock Text="Встроенная проверка пакета zapret (utils\check_updates.enabled). Автообновление самого zapret — в разделе «Обновление»."
+                      <TextBlock Text="Встроенная проверка пакета (utils\check_updates.enabled)."
                                  Style="{StaticResource ZcHint}" Margin="0,8,0,0"/>
                     </StackPanel>
                   </Border>
@@ -957,7 +1119,7 @@ $windowXaml = @'
                   <Border Style="{StaticResource ZcCard}" Margin="0">
                     <StackPanel>
                       <TextBlock Text="Пользовательские списки" Style="{StaticResource ZcCardTitle}"/>
-                      <TextBlock Text="Добавляйте свои домены и IP в файлы *-user.txt. Файлы откроются в Блокноте."
+                      <TextBlock Text="Файлы *-user.txt откроются в Блокноте."
                                  Style="{StaticResource ZcHint}" Margin="0,6,0,14"/>
                       <WrapPanel>
                         <Button x:Name="BtnListGeneral" Content="Общие домены" Width="168"
@@ -976,7 +1138,7 @@ $windowXaml = @'
                 <!-- Раздел: Инструменты -->
                 <StackPanel x:Name="PageTools" Visibility="Collapsed">
                   <TextBlock Text="Сервисные действия" Style="{StaticResource ZcPageTitle}"/>
-                  <TextBlock Text="Результат выполнения выводится в журнал внизу окна."
+                  <TextBlock Text="Результат выполнения — в журнале внизу."
                              Style="{StaticResource ZcHint}" Margin="2,6,0,16"/>
                   <Border Style="{StaticResource ZcCard}" Margin="0">
                     <StackPanel>
@@ -993,21 +1155,13 @@ $windowXaml = @'
                                 Style="{StaticResource ZcSecondary}" Margin="0,0,10,10"/>
                         <Button x:Name="BtnToolWinDivert" Content="Убрать конфликт WinDivert" Height="44"
                                 Style="{StaticResource ZcSecondary}" Margin="0,0,0,10"/>
-                        <Button x:Name="BtnToolOpenRoot" Content="Открыть папку zapret" Height="44"
-                                Style="{StaticResource ZcSecondary}" Margin="0,0,10,10"/>
-                        <Button x:Name="BtnToolOpenData" Content="Открыть папку данных" Height="44"
-                                Style="{StaticResource ZcSecondary}" Margin="0,0,10,10"/>
+                        <Button x:Name="BtnToolOpenData" Content="Папка данных" Height="44"
+                                Style="{StaticResource ZcSecondary}" Margin="0,0,10,0"/>
                         <Button x:Name="BtnToolServiceBat" Content="Меню service.bat" Height="44"
-                                Style="{StaticResource ZcSecondary}" Margin="0,0,0,10"/>
+                                Style="{StaticResource ZcSecondary}" Margin="0,0,10,0"/>
                         <Button x:Name="BtnChooseFolder" Content="Выбрать папку zapret" Height="44"
-                                Style="{StaticResource ZcSecondary}" Margin="0,0,10,0"/>
-                        <Button x:Name="BtnReleases" Content="Страница релизов" Height="44"
-                                Style="{StaticResource ZcSecondary}" Margin="0,0,10,0"/>
-                        <Button x:Name="BtnAbout" Content="О программе" Height="44"
                                 Style="{StaticResource ZcSecondary}" Margin="0,0,0,0"/>
                       </UniformGrid>
-                      <TextBlock Text="«Меню service.bat» открывает штатное консольное меню пакета — на случай, если нужна функция, которой нет в GUI."
-                                 Style="{StaticResource ZcHint}" Margin="0,16,0,0"/>
                     </StackPanel>
                   </Border>
                 </StackPanel>
@@ -1015,28 +1169,26 @@ $windowXaml = @'
                 <!-- Раздел: Тест стратегий -->
                 <StackPanel x:Name="PageTests" Visibility="Collapsed">
                   <TextBlock Text="Тест стратегий" Style="{StaticResource ZcPageTitle}"/>
-                  <TextBlock Text="Запускает штатный тест из utils\test zapret.ps1 — тот же, что пункт 12 меню service.bat."
+                  <TextBlock Text="Штатный тест из utils\test zapret.ps1 — тот же, что пункт 12 меню service.bat."
                              Style="{StaticResource ZcHint}" Margin="2,6,0,16"/>
                   <Border Style="{StaticResource ZcCard}">
                     <StackPanel>
-                      <TextBlock Style="{StaticResource ZcBody}"
-                                 Text="Тест по очереди запускает стратегии и проверяет доступность Discord, YouTube и других целей. Это может занять несколько минут. Результаты сохраняются в utils\test results."/>
-                      <TextBlock Style="{StaticResource ZcBody}" Margin="0,10,0,0"
-                                 Text="Перед тестом служба zapret должна быть удалена, а winws.exe — остановлен. GUI предупредит и сделает это сам."/>
-                      <WrapPanel Margin="0,16,0,0">
-                        <Button x:Name="BtnRunTests" Content="Запустить тест стратегий" Width="280" Height="46"
+                      <TextBlock Text="Проверяет Discord, YouTube и другие цели по очереди. Занимает несколько минут; служба и winws.exe будут остановлены автоматически."
+                                 Style="{StaticResource ZcHint}" Margin="0,0,0,16"/>
+                      <WrapPanel>
+                        <Button x:Name="BtnRunTests" Content="Запустить тест" Width="220" Height="44"
                                 Style="{StaticResource ZcPrimary}" Margin="0,0,10,10"/>
-                        <Button x:Name="BtnTestResults" Content="Открыть папку результатов" Width="240" Height="46"
+                        <Button x:Name="BtnTestResults" Content="Папка результатов" Width="220" Height="44"
                                 Style="{StaticResource ZcSecondary}" Margin="0,0,0,10"/>
                       </WrapPanel>
                     </StackPanel>
                   </Border>
                   <Border Style="{StaticResource ZcCard}" Margin="0">
                     <StackPanel>
-                      <TextBlock Text="Быстрая проверка соединения" Style="{StaticResource ZcCardTitle}"/>
-                      <TextBlock Text="Проверяет Discord, YouTube, Google и Cloudflare через curl. Полезно, чтобы понять, работает ли уже запущенная стратегия."
+                      <TextBlock Text="Быстрая проверка" Style="{StaticResource ZcCardTitle}"/>
+                      <TextBlock Text="Discord, YouTube, Google и Cloudflare через curl."
                                  Style="{StaticResource ZcHint}" Margin="0,6,0,14"/>
-                      <Button x:Name="BtnQuickCheck" Content="Проверить соединение" Width="240" Height="40"
+                      <Button x:Name="BtnQuickCheck" Content="Проверить соединение" Width="220" Height="40"
                               Style="{StaticResource ZcSecondary}" HorizontalAlignment="Left"/>
                     </StackPanel>
                   </Border>
@@ -1044,19 +1196,19 @@ $windowXaml = @'
 
                 <!-- Раздел: Обновление -->
                 <StackPanel x:Name="PageUpdate" Visibility="Collapsed">
-                  <TextBlock Text="Обновление zapret с GitHub" Style="{StaticResource ZcPageTitle}"/>
+                  <TextBlock Text="Обновление" Style="{StaticResource ZcPageTitle}"/>
                   <TextBlock Text="Источник: github.com/Flowseal/zapret-discord-youtube · GUI / форк: Bugulmek"
                              Style="{StaticResource ZcHint}" Margin="2,6,0,16"/>
                   <Border Style="{StaticResource ZcCard}">
                     <StackPanel>
-                      <Border Background="{StaticResource Field}" CornerRadius="10" Padding="14,12">
+                      <Border Background="{DynamicResource Field}" CornerRadius="10" Padding="14,12">
                         <StackPanel>
                           <TextBlock x:Name="LblUpdateLocal" Text="Установленная версия: —"
-                                     FontSize="13.5" FontWeight="SemiBold" Foreground="{StaticResource Ink}"/>
+                                     FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource Ink}"/>
                           <TextBlock x:Name="LblUpdateLatest" Text="Последняя на GitHub: —"
-                                     FontSize="12.5" Foreground="{StaticResource Muted}" Margin="0,4,0,0"/>
+                                     FontSize="12.5" Foreground="{DynamicResource Muted}" Margin="0,4,0,0"/>
                           <TextBlock x:Name="LblUpdateStatus" Text="Проверка ещё не выполнялась"
-                                     FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Muted}"
+                                     FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource Muted}"
                                      Margin="0,10,0,0"/>
                         </StackPanel>
                       </Border>
@@ -1070,7 +1222,7 @@ $windowXaml = @'
                       </WrapPanel>
                       <CheckBox x:Name="ChkStartupUpdates" Style="{StaticResource ZcCheck}" Margin="0,6,0,0"
                                 Content="Проверять обновления при запуске GUI"/>
-                      <TextBlock Text="Новая версия ставится в отдельную папку рядом. Пользовательские списки и настройки переносятся, старая папка остаётся на месте."
+                      <TextBlock Text="Новая версия ставится рядом; списки и настройки переносятся."
                                  Style="{StaticResource ZcHint}" Margin="0,10,0,0"/>
                     </StackPanel>
                   </Border>
@@ -1091,12 +1243,12 @@ $windowXaml = @'
       </Grid>
 
       <!-- Журнал -->
-      <Border Grid.Row="3" Margin="30,14,30,16" Style="{StaticResource ZcCard}" Padding="0">
+      <Border Grid.Row="3" Margin="30,10,30,10" Style="{StaticResource ZcCard}" Padding="0">
         <Grid>
           <Grid.RowDefinitions>
-            <RowDefinition Height="44"/>
+            <RowDefinition Height="42"/>
             <RowDefinition Height="1"/>
-            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
           </Grid.RowDefinitions>
           <Grid Grid.Row="0" Margin="18,0,14,0">
             <Grid.ColumnDefinitions>
@@ -1108,33 +1260,34 @@ $windowXaml = @'
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
               <CheckBox x:Name="ChkAutoScroll" Content="Автопрокрутка" Style="{StaticResource ZcCheck}"
                         FontSize="12" Margin="0,0,14,0" IsChecked="True"/>
-              <Button x:Name="BtnOpenData" Content="Папка данных" Style="{StaticResource ZcSmall}" Margin="0,0,8,0"/>
-              <Button x:Name="BtnSaveLog" Content="Сохранить лог" Style="{StaticResource ZcSmall}" Margin="0,0,8,0"/>
-              <Button x:Name="BtnClearLog" Content="Очистить" Style="{StaticResource ZcSmall}"/>
+              <Button x:Name="BtnSaveLog" Content="Сохранить" Style="{StaticResource ZcSmall}" Margin="0,0,8,0"/>
+              <Button x:Name="BtnClearLog" Content="Очистить" Style="{StaticResource ZcSmall}" Margin="0,0,8,0"/>
+              <Button x:Name="BtnToggleLog" Content="Развернуть" Style="{StaticResource ZcSmall}"/>
             </StackPanel>
           </Grid>
-          <Border Grid.Row="1" Background="{StaticResource Hairline}"/>
-          <RichTextBox x:Name="RtbLog" Grid.Row="2" BorderThickness="0" Background="#FBFBFD"
+          <Border Grid.Row="1" Background="{DynamicResource Hairline}"/>
+          <RichTextBox x:Name="RtbLog" Grid.Row="2" Height="176" Visibility="Collapsed"
+                       BorderThickness="0" Background="{DynamicResource LogBg}"
                        FontFamily="Cascadia Mono, Consolas, Courier New" FontSize="12"
-                       Foreground="{StaticResource Body}" IsReadOnly="True" IsUndoEnabled="False"
+                       Foreground="{DynamicResource Body}" IsReadOnly="True" IsUndoEnabled="False"
                        VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                       SelectionBrush="#B3D7F7">
+                       SelectionBrush="{DynamicResource Selection}">
             <FlowDocument PagePadding="0"/>
           </RichTextBox>
         </Grid>
       </Border>
 
       <!-- Статус-бар -->
-      <Border Grid.Row="4" BorderBrush="{StaticResource Hairline}" BorderThickness="0,1,0,0"
-              Background="{StaticResource Canvas}">
+      <Border Grid.Row="4" BorderBrush="{DynamicResource NavLineBrush}" BorderThickness="0,1,0,0"
+              Background="{DynamicResource Canvas}">
         <Grid Margin="30,0">
           <TextBlock x:Name="StatusLabel" Text="Готово" FontSize="11.5"
-                     Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
+                     Foreground="{DynamicResource Muted}" VerticalAlignment="Center"/>
           <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
             <Button x:Name="BtnAboutFooter" Content="О программе" Style="{StaticResource ZcGhost}"
                     Height="24" Margin="0,0,8,0"/>
-            <TextBlock x:Name="FooterVersion" Text="1.1.0 · MIT" FontSize="11.5"
-                       Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
+            <TextBlock x:Name="FooterVersion" Text="1.2.0 · MIT" FontSize="11.5"
+                       Foreground="{DynamicResource Muted}" VerticalAlignment="Center"/>
           </StackPanel>
         </Grid>
       </Border>
@@ -1188,11 +1341,8 @@ $script:StatusLabels = @{
     Winws    = Get-Ui 'StatusWinws'
     Strategy = Get-Ui 'StatusStrategy'
     Ipset    = Get-Ui 'StatusIpset'
-    Game     = Get-Ui 'StatusGame'
-    Updates  = Get-Ui 'StatusUpdates'
-    Version  = Get-Ui 'StatusVersion'
-    Admin    = Get-Ui 'StatusAdmin'
 }
+$script:HeaderSubtitle = Get-Ui 'HeaderSubtitle'
 
 (Get-Ui 'VersionChipText').Text = $script:ZC_AppVersion
 (Get-Ui 'FooterVersion').Text = $script:ZC_AppVersion + ' · MIT'
@@ -1213,8 +1363,8 @@ function Write-UiLog {
         'Green'  = $script:BrGreen
         'Red'    = $script:BrRed
         'Yellow' = $script:BrOrange
-        'Cyan'   = Get-Brush '#0A6E9E'
-        'Blue'   = Get-Brush '#0A5BB5'
+        'Cyan'   = $script:BrLogCyan
+        'Blue'   = $script:BrLogBlue
     }
     $brush = $colorMap[$Color]
     if (-not $brush) { $brush = $script:BrLogText }
@@ -1239,6 +1389,33 @@ function Get-LogText {
     if (-not $script:RtbLog) { return '' }
     $range = New-Object Windows.Documents.TextRange($script:RtbLog.Document.ContentStart, $script:RtbLog.Document.ContentEnd)
     return $range.Text
+}
+
+function Update-LogTheme {
+    param([hashtable]$OldPalette)
+
+    if (-not $script:RtbLog -or -not $OldPalette) { return }
+    $palette = $script:CurrentPalette
+    if (-not $palette) { return }
+
+    $keys = @('LogText', 'LogGray', 'Green', 'Red', 'Orange', 'LogCyan', 'LogBlue')
+    $map = @{}
+    foreach ($key in $keys) {
+        $hex = ([string]$OldPalette[$key]).ToUpperInvariant()
+        $map[$hex] = Get-Brush ([string]$palette[$key])
+    }
+
+    foreach ($block in $script:RtbLog.Document.Blocks) {
+        $paragraph = $block -as [Windows.Documents.Paragraph]
+        if (-not $paragraph) { continue }
+        foreach ($inline in $paragraph.Inlines) {
+            $run = $inline -as [Windows.Documents.Run]
+            if (-not $run -or -not $run.Foreground) { continue }
+            $color = $run.Foreground.Color
+            $hex = '#{0:X2}{1:X2}{2:X2}' -f $color.R, $color.G, $color.B
+            if ($map.ContainsKey($hex)) { $run.Foreground = $map[$hex] }
+        }
+    }
 }
 
 function Set-BusyStatus {
@@ -1410,6 +1587,7 @@ function Refresh-StrategyList {
     }
     if ($index -lt 0) { $index = 0 }
     $script:LstStrategies.SelectedIndex = $index
+    try { $script:LstStrategies.ScrollIntoView($script:LstStrategies.SelectedItem) } catch { }
 }
 
 function Start-StrategyInternal {
@@ -1732,14 +1910,8 @@ function Update-AllStatus {
         Set-StatusValue 'Strategy' '—' $script:BrMuted
     }
 
-    # Права
-    if (Test-IsAdmin) {
-        Set-StatusValue 'Admin' 'администратор' $script:BrGreen
-        Set-AdminPill $true
-    } else {
-        Set-StatusValue 'Admin' 'нет прав' $script:BrRed
-        Set-AdminPill $false
-    }
+    # Права (индикатор в шапке)
+    Set-AdminPill ([bool](Test-IsAdmin))
 
     # IPSet
     $ipset = Get-IpsetState -Root $script:ZapretRoot
@@ -1749,28 +1921,14 @@ function Update-AllStatus {
         default  { Set-StatusValue 'Ipset' 'любой (any)' $script:BrMuted }
     }
 
-    # Игровой фильтр
-    $gameFilter = Get-GameFilterState -Root $script:ZapretRoot
-    switch ($gameFilter.Mode) {
-        'all' { Set-StatusValue 'Game' ('TCP+UDP · ' + $gameFilter.Tcp) $script:BrGreen }
-        'tcp' { Set-StatusValue 'Game' ('TCP · ' + $gameFilter.Tcp) $script:BrGreen }
-        'udp' { Set-StatusValue 'Game' ('UDP · ' + $gameFilter.Udp) $script:BrGreen }
-        default { Set-StatusValue 'Game' 'выключен' $script:BrMuted }
-    }
-
-    # Встроенная проверка обновлений .bat
-    if (Test-Path -LiteralPath (Join-Path $script:ZapretRoot 'utils\check_updates.enabled')) {
-        Set-StatusValue 'Updates' 'включена' $script:BrGreen
-    } else {
-        Set-StatusValue 'Updates' 'выключена' $script:BrMuted
-    }
-
-    # Версия пакета
+    # Версия пакета — в подзаголовке шапки
     $version = Get-LocalZapretVersion -Root $script:ZapretRoot
-    if ($version) {
-        Set-StatusValue 'Version' $version $script:BrInk
-    } else {
-        Set-StatusValue 'Version' '—' $script:BrMuted
+    if ($script:HeaderSubtitle) {
+        if ($version) {
+            $script:HeaderSubtitle.Text = 'Управление zapret-discord-youtube · пакет ' + $version
+        } else {
+            $script:HeaderSubtitle.Text = 'Управление zapret-discord-youtube'
+        }
     }
 
     # Элементы управления, зависящие от службы
@@ -2846,6 +3004,20 @@ for ($i = 0; $i -lt $script:NavButtons.Count; $i++) {
     try { $script:Window.DragMove() } catch { }
 })
 
+$script:Window.Add_Loaded({
+    if ($script:LstStrategies -and $script:LstStrategies.SelectedItem) {
+        try { $script:LstStrategies.ScrollIntoView($script:LstStrategies.SelectedItem) } catch { }
+    }
+})
+
+foreach ($themePair in @(@('ThemeLight', 'light'), @('ThemeDark', 'dark'), @('ThemeNeon', 'neon'))) {
+    $themeButton = Get-Ui $themePair[0]
+    $themeKey = $themePair[1]
+    if ($themeButton) {
+        $themeButton.Add_Checked({ Apply-Theme $themeKey -Save }.GetNewClosure())
+    }
+}
+
 # ---------------------------------------------------------------------------
 #  События: стратегии
 # ---------------------------------------------------------------------------
@@ -2955,9 +3127,6 @@ $script:ChkAutostart.Add_Click({
         }
     }
 })
-(Get-Ui 'BtnToolOpenRoot').Add_Click({
-    Invoke-UiSafe { Open-Folder $script:ZapretRoot }
-})
 (Get-Ui 'BtnToolOpenData').Add_Click({
     Invoke-UiSafe { Open-DataFolder }
 })
@@ -2966,12 +3135,6 @@ $script:ChkAutostart.Add_Click({
 })
 (Get-Ui 'BtnChooseFolder').Add_Click({
     Invoke-UiSafe { Choose-ZapretFolder }
-})
-(Get-Ui 'BtnReleases').Add_Click({
-    try { Start-Process -FilePath $script:ZC_ReleasesPage | Out-Null } catch { }
-})
-(Get-Ui 'BtnAbout').Add_Click({
-    Invoke-UiSafe { Show-About }
 })
 (Get-Ui 'BtnAboutFooter').Add_Click({
     Invoke-UiSafe { Show-About }
@@ -3024,14 +3187,23 @@ $script:ChkStartupUpdates.Add_Click({
         }
     } catch { }
 })
-(Get-Ui 'BtnOpenData').Add_Click({
-    Invoke-UiSafe { Open-DataFolder }
+(Get-Ui 'BtnToggleLog').Add_Click({
+    if ($script:RtbLog.Visibility -eq [Windows.Visibility]::Visible) {
+        $script:RtbLog.Visibility = [Windows.Visibility]::Collapsed
+        (Get-Ui 'BtnToggleLog').Content = 'Развернуть'
+    } else {
+        $script:RtbLog.Visibility = [Windows.Visibility]::Visible
+        (Get-Ui 'BtnToggleLog').Content = 'Свернуть'
+        $script:RtbLog.ScrollToEnd()
+    }
 })
 
 # ---------------------------------------------------------------------------
 #  Начальная инициализация
 # ---------------------------------------------------------------------------
 $script:ChkStartupUpdates.IsChecked = [bool]$script:Config.CheckUpdatesOnStart
+
+Apply-Theme $script:Config.Theme
 
 Refresh-StrategyList
 Load-SettingsIntoUi

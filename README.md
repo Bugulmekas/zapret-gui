@@ -2,10 +2,10 @@
 
 <p align="center">
   <a href="https://github.com/lordsamper9-cyber/zapret-gui/releases/latest">
-    <img src="https://img.shields.io/github/v/release/lordsamper9-cyber/zapret-gui?style=for-the-badge&label=release" alt="Последний релиз">
+    <img src="https://img.shields.io/github/v/release/lordsamper9-cyber/zapret-gui?style=for-the-badge&label=release&logo=github&logoColor=white" alt="Последний релиз">
   </a>
   <a href="https://github.com/lordsamper9-cyber/zapret-gui/releases">
-    <img src="https://img.shields.io/github/downloads/lordsamper9-cyber/zapret-gui/total?style=for-the-badge&label=downloads" alt="Скачивания">
+    <img src="https://img.shields.io/github/downloads/lordsamper9-cyber/zapret-gui/total?style=for-the-badge&label=downloads&logo=github&logoColor=white" alt="Скачивания">
   </a>
   <a href="https://github.com/lordsamper9-cyber/zapret-gui/actions/workflows/ci.yml">
     <img src="https://github.com/lordsamper9-cyber/zapret-gui/actions/workflows/ci.yml/badge.svg" alt="CI">

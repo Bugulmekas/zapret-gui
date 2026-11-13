@@ -6,7 +6,10 @@
 # ============================================================================
 
 $script:ZC_AppName      = 'Zapret Control'
-$script:ZC_AppVersion   = '1.2.0'
+$script:ZC_AppVersion   = '1.3.0'
+$script:ZC_GuiRepo      = 'Bugulmekas/zapret-gui'
+$script:ZC_GuiReleasesApi  = 'https://api.github.com/repos/Bugulmekas/zapret-gui/releases/latest'
+$script:ZC_GuiReleasesPage = 'https://github.com/Bugulmekas/zapret-gui/releases/latest'
 $script:ZC_UpstreamRepo = 'Flowseal/zapret-discord-youtube'
 $script:ZC_ReleasesApi  = 'https://api.github.com/repos/Flowseal/zapret-discord-youtube/releases/latest'
 $script:ZC_ReleasesPage = 'https://github.com/Flowseal/zapret-discord-youtube/releases/latest'
@@ -348,20 +351,131 @@ function Enable-TcpTimestamps {
 }
 
 function Stop-ZapretService {
-    param([string]$Name = 'zapret')
+    param([string]$Name = 'zapret', [switch]$KeepProcesses)
 
     $service = Get-Service -Name $Name -ErrorAction SilentlyContinue
     if ($null -eq $service) { return $false }
 
     if ($service.Status -ne 'Stopped') {
         try { Stop-Service -Name $Name -Force -ErrorAction SilentlyContinue } catch { }
-        for ($i = 0; $i -lt 24; $i++) {
+        for ($i = 0; $i -lt 40; $i++) {
             try { $service.Refresh() } catch { }
             if ($service.Status -eq 'Stopped') { break }
             Start-Sleep -Milliseconds 250
         }
     }
+
+    # Служба может оставить дочерний winws.exe: он держит драйвер WinDivert
+    # и не даёт службе запуститься снова.
+    if (-not $KeepProcesses) {
+        Stop-ZapretProcesses | Out-Null
+        Reset-WinDivertDriver
+    }
     return $true
+}
+
+function Start-ZapretService {
+    param([string]$Name = 'zapret', [int]$Attempts = 3)
+
+    $service = Get-Service -Name $Name -ErrorAction SilentlyContinue
+    if (-not $service) { return $false }
+    try { $service.Refresh() } catch { }
+    if ($service.Status -eq 'Running') { return $true }
+
+    $script:ZC_LastServiceError = $null
+    for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
+        if ($attempt -gt 1) { Start-Sleep -Milliseconds 900 }
+
+        # Осиротевший winws.exe и служба драйвера WinDivert мешают старту.
+        Stop-ZapretProcesses | Out-Null
+        Reset-WinDivertDriver
+
+        try {
+            Start-Service -Name $Name -ErrorAction Stop
+        } catch {
+            $script:ZC_LastServiceError = $_.Exception.Message
+        }
+
+        # winws может успеть перейти в Running и сразу упасть (код 1),
+        # поэтому требуем стабильной работы несколько секунд.
+        $stable = $false
+        $lastStatus = ''
+        for ($i = 0; $i -lt 18; $i++) {
+            Start-Sleep -Milliseconds 300
+            try { $service.Refresh() } catch { }
+            $lastStatus = $service.Status.ToString()
+            if ($lastStatus -ne 'Running') { break }
+            if ($i -eq 17) { $stable = $true }
+        }
+
+        if ($stable -and @(Get-WinwsProcesses).Count -gt 0) { return $true }
+
+        if ($lastStatus -and $lastStatus -ne 'Running') {
+            $script:ZC_LastServiceError = 'Служба запустилась и сразу остановилась (winws.exe завершился с ошибкой).'
+        }
+    }
+
+    try { $service.Refresh() } catch { }
+    if ($service.Status -eq 'Running' -and @(Get-WinwsProcesses).Count -gt 0) { return $true }
+    return $false
+}
+
+function Reset-WinDivertDriver {
+    # Удаляет осиротевшие службы драйвера, оставшиеся после аварийной остановки winws.
+    if (@(Get-WinwsProcesses).Count -gt 0) { return }
+
+    foreach ($name in @('WinDivert', 'WinDivert14')) {
+        $service = Get-Service -Name $name -ErrorAction SilentlyContinue
+        if (-not $service) { continue }
+        try { Stop-Service -Name $name -Force -ErrorAction SilentlyContinue } catch { }
+        & sc.exe delete $name 2>$null | Out-Null
+    }
+}
+
+function Get-WinDivertState {
+    $services = @()
+    foreach ($name in @('WinDivert', 'WinDivert14')) {
+        $service = Get-Service -Name $name -ErrorAction SilentlyContinue
+        if ($service) { $services += $service }
+    }
+
+    if ($services.Count -eq 0) { return 'absent' }
+    $active = @($services | Where-Object { $_.Status -ne 'Stopped' })
+    if ($active.Count -eq 0) { return 'stopped' }
+    if (@(Get-WinwsProcesses).Count -eq 0) { return 'stale' }
+    return 'running'
+}
+
+function Get-VpnConflicts {
+    # Активные VPN/прокси-клиенты конфликтуют с zapret: вместе они обычно роняют интернет.
+    $names = @(
+        'Happ', 'happd', 'sing-box', 'xray', 'v2ray', 'clash', 'mihomo',
+        'openvpn', 'openvpn-gui', 'wireguard', 'tailscale', 'zerotier',
+        'nordvpn', 'protonvpn', 'surfshark', 'windscribe', 'outline',
+        'shadowsocks', 'amnezia', 'openconnect', 'softether', 'warp-svc'
+    )
+
+    $found = New-Object System.Collections.ArrayList
+    foreach ($process in @(Get-Process -Name $names -ErrorAction SilentlyContinue)) {
+        $key = [string]$process.ProcessName
+        if ($key -and -not $found.Contains($key)) { [void]$found.Add($key) }
+    }
+
+    $servicePatterns = @(
+        'HappService', 'OpenVPN*', 'WireGuard*', 'Tailscale', 'ZeroTierOneService',
+        'NordVPN*', 'ProtonVPN*', 'Surfshark*', 'Amnezia*', 'Windscribe*', 'warp-svc'
+    )
+    foreach ($service in @(Get-Service -ErrorAction SilentlyContinue)) {
+        if ($service.Status -ne 'Running') { continue }
+        foreach ($pattern in $servicePatterns) {
+            if ($service.Name -like $pattern -or $service.DisplayName -like $pattern) {
+                if (-not $found.Contains($service.Name)) { [void]$found.Add($service.Name) }
+                break
+            }
+        }
+    }
+
+    return @($found)
 }
 
 function Stop-ZapretProcesses {
@@ -418,9 +532,19 @@ function Invoke-CurlText {
 
     $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
     if ($curl) {
-        $output = & curl.exe -s -L --max-time $TimeoutSec -H 'User-Agent: ZapretControl' $Url 2>$null
-        if ($LASTEXITCODE -ne 0) { return $null }
-        return (($output | Out-String).Trim())
+        $tempFile = Join-Path ([IO.Path]::GetTempPath()) ('zc-api-' + [Guid]::NewGuid().ToString('N') + '.json')
+        try {
+            & curl.exe -s -L --max-time $TimeoutSec -H 'User-Agent: ZapretControl' -o $tempFile $Url 2>$null
+            if ($LASTEXITCODE -ne 0) { return $null }
+            if (-not (Test-Path -LiteralPath $tempFile)) { return $null }
+            # curl отдаёт UTF-8, а PowerShell 5.1 декодирует stdout в OEM-кодировке,
+            # поэтому читаем ответ из файла явно как UTF-8.
+            return ([IO.File]::ReadAllText($tempFile, [Text.Encoding]::UTF8)).Trim()
+        } catch {
+            return $null
+        } finally {
+            if (Test-Path -LiteralPath $tempFile) { Remove-Item -LiteralPath $tempFile -Force -ErrorAction SilentlyContinue }
+        }
     }
 
     try {
@@ -476,6 +600,45 @@ function Get-LatestZapretRelease {
         AssetUrl    = $assetUrl
         PublishedAt = [string]$json.published_at
     }
+}
+
+function Get-LatestGuiRelease {
+    $raw = Invoke-CurlText -Url $script:ZC_GuiReleasesApi -TimeoutSec 20
+    if ([string]::IsNullOrWhiteSpace($raw)) { return $null }
+
+    try { $json = $raw | ConvertFrom-Json } catch { return $null }
+    if (-not $json.tag_name) { return $null }
+
+    $asset = @($json.assets) | Where-Object { $_.name -like 'zapret-gui-*.zip' } | Select-Object -First 1
+    $assetName = $null
+    $assetUrl = $null
+    if ($asset) {
+        $assetName = [string]$asset.name
+        $assetUrl = [string]$asset.browser_download_url
+    }
+
+    return [pscustomobject]@{
+        Tag         = [string]$json.tag_name
+        Name        = [string]$json.name
+        Body        = [string]$json.body
+        HtmlUrl     = [string]$json.html_url
+        AssetName   = $assetName
+        AssetUrl    = $assetUrl
+        PublishedAt = [string]$json.published_at
+    }
+}
+
+function ConvertFrom-MarkdownNotes {
+    param([string]$Text)
+
+    if ([string]::IsNullOrWhiteSpace($Text)) { return '' }
+    $result = $Text -replace "`r`n", "`n"
+    $result = [regex]::Replace($result, '(?m)^\s{0,3}#{1,6}\s*', '')
+    $result = [regex]::Replace($result, '\[([^\]]+)\]\((https?://[^)\s]+)\)', '$1 ($2)')
+    $result = $result -replace '\*\*([^*]+)\*\*', '$1'
+    $result = $result -replace '__([^_]+)__', '$1'
+    $result = $result -replace '`([^`]+)`', '$1'
+    return $result.Trim()
 }
 
 function Test-UrlAvailability {

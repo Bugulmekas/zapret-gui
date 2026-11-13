@@ -133,12 +133,17 @@ if ($script:Config.ZapretRoot -ne $script:ZapretRoot) {
 $script:Window          = $null
 $script:Form            = $null
 $script:StatusLabels    = @{}
+$script:AdminPillShimmer = $false
+$script:VpnWarningShown  = $false
 $script:LstStrategies   = $null
 $script:RtbLog          = $null
 $script:StatusLabel     = $null
 $script:AdminPill       = $null
 $script:AdminPillText   = $null
 $script:AdminPillDot    = $null
+$script:VpnPill         = $null
+$script:VpnPillText     = $null
+$script:VpnStateChecked = [DateTime]::MinValue
 $script:LatestRelease   = $null
 $script:UpdateAvailable = $false
 $script:SyncingUi       = $false
@@ -170,6 +175,7 @@ $script:Themes = @{
         Green = '#248A3D'; Red = '#D70015'; Orange = '#B25000'
         LogText = '#3A3A3C'; LogGray = '#8E8E93'; LogCyan = '#0A6E9E'; LogBlue = '#0A5BB5'
         PillOk = '#E8F6EC'; PillBad = '#FDECEB'; PillOkDot = '#34C759'; PillBadDot = '#FF3B30'
+        PillWarn = '#FFF4E5'; PillWarnDot = '#FF9500'
     }
     dark = @{
         Canvas = '#111113'; Surface = '#1A1A1D'; Ink = '#F5F5F7'; Body = '#C7C7CC'
@@ -181,6 +187,7 @@ $script:Themes = @{
         Green = '#30D158'; Red = '#FF453A'; Orange = '#FF9F0A'
         LogText = '#C7C7CC'; LogGray = '#8E8E93'; LogCyan = '#64D2FF'; LogBlue = '#0A84FF'
         PillOk = '#17301F'; PillBad = '#331715'; PillOkDot = '#34C759'; PillBadDot = '#FF453A'
+        PillWarn = '#33240F'; PillWarnDot = '#FFB340'
     }
     neon = @{
         Canvas = '#0D1117'; Surface = '#0E1626'; Ink = '#E7F2FF'; Body = '#A9BCD6'
@@ -192,6 +199,7 @@ $script:Themes = @{
         Green = '#3DF5A5'; Red = '#FF5470'; Orange = '#FFC24B'
         LogText = '#A9BCD6'; LogGray = '#64748B'; LogCyan = '#00F5FF'; LogBlue = '#7A5CFF'
         PillOk = '#0C2A24'; PillBad = '#2A0F2A'; PillOkDot = '#3DF5A5'; PillBadDot = '#FF2BD6'
+        PillWarn = '#2A1F0A'; PillWarnDot = '#FFC24B'
     }
 }
 
@@ -217,6 +225,8 @@ function Set-ThemeBrushVars {
     $script:BrPillBad    = Get-Brush $Palette.PillBad
     $script:BrPillOkDot  = Get-Brush $Palette.PillOkDot
     $script:BrPillBadDot = Get-Brush $Palette.PillBadDot
+    $script:BrPillWarn   = Get-Brush $Palette.PillWarn
+    $script:BrPillWarnDot = Get-Brush $Palette.PillWarnDot
 }
 
 function New-NeonGradient {
@@ -241,6 +251,33 @@ function New-Glow {
     $effect.ShadowDepth = 0
     $effect.Opacity = $Opacity
     return [Windows.Media.Effects.Effect]$effect
+}
+
+function New-ShimmerBrush {
+    param([string[]]$Colors = @('#00F5FF', '#7A5CFF', '#FF2BD6', '#00F5FF'))
+
+    $brush = New-Object Windows.Media.LinearGradientBrush
+    $brush.StartPoint = New-Object Windows.Point(0, 0)
+    $brush.EndPoint = New-Object Windows.Point(1, 0)
+
+    for ($i = 0; $i -lt $Colors.Count; $i++) {
+        $stop = New-Object Windows.Media.GradientStop
+        $stop.Color = (Get-Brush $Colors[$i]).Color
+        if ($Colors.Count -gt 1) { $stop.Offset = $i / ($Colors.Count - 1) }
+        [void]$brush.GradientStops.Add($stop)
+
+        $nextColor = (Get-Brush $Colors[($i + 1) % $Colors.Count]).Color
+        $animation = New-Object Windows.Media.Animation.ColorAnimation
+        $animation.From = $stop.Color
+        $animation.To = $nextColor
+        $animation.Duration = [Windows.Duration]([TimeSpan]::FromSeconds(2.6))
+        $animation.AutoReverse = $true
+        $animation.RepeatBehavior = [Windows.Media.Animation.RepeatBehavior]::Forever
+        $animation.BeginTime = [TimeSpan]::FromMilliseconds(($i * 320) % 960)
+        $stop.BeginAnimation([Windows.Media.GradientStop]::ColorProperty, $animation)
+    }
+
+    return [Windows.Media.Brush]$brush
 }
 
 Set-ThemeBrushVars $script:CurrentPalette
@@ -346,6 +383,8 @@ $windowXaml = @'
     <SolidColorBrush x:Key="PillBad" Color="#331715"/>
     <SolidColorBrush x:Key="PillOkDot" Color="#34C759"/>
     <SolidColorBrush x:Key="PillBadDot" Color="#FF453A"/>
+    <SolidColorBrush x:Key="PillWarn" Color="#33240F"/>
+    <SolidColorBrush x:Key="PillWarnDot" Color="#FFB340"/>
     <SolidColorBrush x:Key="CardBorder" Color="#2A2A2F"/>
     <SolidColorBrush x:Key="TitleBrush" Color="#F5F5F7"/>
     <SolidColorBrush x:Key="NavActiveText" Color="#F5F5F7"/>
@@ -868,7 +907,7 @@ $windowXaml = @'
             <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Hairline}"
                     BorderThickness="1" CornerRadius="999" Padding="9,2" Margin="12,5,0,0"
                     VerticalAlignment="Center">
-              <TextBlock x:Name="VersionChipText" Text="1.2.0" FontSize="11.5"
+              <TextBlock x:Name="VersionChipText" Text="1.3.0" FontSize="11.5"
                          FontWeight="SemiBold" Foreground="{DynamicResource Muted}"/>
             </Border>
           </StackPanel>
@@ -885,6 +924,17 @@ $windowXaml = @'
                            Style="{StaticResource ZcTheme}" Tag="dark"/>
               <RadioButton x:Name="ThemeNeon" Content="Неон" GroupName="Theme"
                            Style="{StaticResource ZcTheme}" Tag="neon"/>
+            </StackPanel>
+          </Border>
+          <Border x:Name="VpnPill" Background="{DynamicResource PillWarn}" CornerRadius="999"
+                  Padding="12,6" Margin="0,0,12,0" VerticalAlignment="Center" Visibility="Collapsed"
+                  ToolTip="VPN и zapret вместе обычно отключают интернет">
+            <StackPanel Orientation="Horizontal">
+              <Ellipse x:Name="VpnPillDot" Width="7" Height="7" Fill="{DynamicResource PillWarnDot}"
+                       VerticalAlignment="Center"/>
+              <TextBlock x:Name="VpnPillText" Text="VPN активен" FontSize="12"
+                         FontWeight="SemiBold" Foreground="{DynamicResource Ink}"
+                         Margin="7,0,0,0" VerticalAlignment="Center"/>
             </StackPanel>
           </Border>
           <Border x:Name="AdminPill" Background="{DynamicResource PillOk}" CornerRadius="999"
@@ -913,11 +963,12 @@ $windowXaml = @'
             <ColumnDefinition Width="*"/>
             <ColumnDefinition Width="*"/>
             <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*"/>
           </Grid.ColumnDefinitions>
 
           <Border Grid.Row="0" Grid.Column="0" BorderBrush="{DynamicResource Hairline}" BorderThickness="0,0,1,0" Padding="22,0">
             <StackPanel VerticalAlignment="Center">
-              <TextBlock Text="Служба zapret" Style="{StaticResource ZcFieldLabel}" Margin="0,0,0,3"/>
+              <TextBlock Text="Режим zapret" Style="{StaticResource ZcFieldLabel}" Margin="0,0,0,3"/>
               <TextBlock x:Name="StatusService" Text="—" FontSize="15" FontWeight="SemiBold"
                          Foreground="{DynamicResource Ink}" TextTrimming="CharacterEllipsis"/>
             </StackPanel>
@@ -936,10 +987,17 @@ $windowXaml = @'
                          Foreground="{DynamicResource Ink}" TextTrimming="CharacterEllipsis"/>
             </StackPanel>
           </Border>
-          <Border Grid.Row="0" Grid.Column="3" Padding="22,0">
+          <Border Grid.Row="0" Grid.Column="3" BorderBrush="{DynamicResource Hairline}" BorderThickness="0,0,1,0" Padding="22,0">
             <StackPanel VerticalAlignment="Center">
               <TextBlock Text="IPSet" Style="{StaticResource ZcFieldLabel}" Margin="0,0,0,3"/>
               <TextBlock x:Name="StatusIpset" Text="—" FontSize="15" FontWeight="SemiBold"
+                         Foreground="{DynamicResource Ink}" TextTrimming="CharacterEllipsis"/>
+            </StackPanel>
+          </Border>
+          <Border Grid.Row="0" Grid.Column="4" Padding="22,0">
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="WinDivert" Style="{StaticResource ZcFieldLabel}" Margin="0,0,0,3"/>
+              <TextBlock x:Name="StatusWinDivert" Text="—" FontSize="15" FontWeight="SemiBold"
                          Foreground="{DynamicResource Ink}" TextTrimming="CharacterEllipsis"/>
             </StackPanel>
           </Border>
@@ -1023,6 +1081,10 @@ $windowXaml = @'
                       <CheckBox x:Name="ChkAutostart" Content="Запускать службу автоматически при старте Windows"
                                 Style="{StaticResource ZcCheck}"/>
                       <WrapPanel Margin="0,16,0,0">
+                        <Button x:Name="BtnStartService" Content="Запустить службу" Width="172"
+                                Style="{StaticResource ZcPrimary}" Margin="0,0,10,10"/>
+                        <Button x:Name="BtnStopService" Content="Остановить службу" Width="172"
+                                Style="{StaticResource ZcSecondary}" Margin="0,0,10,10"/>
                         <Button x:Name="BtnRestartService" Content="Перезапустить" Width="172"
                                 Style="{StaticResource ZcSecondary}" Margin="0,0,10,10"/>
                         <Button x:Name="BtnRemoveService" Content="Удалить службу" Width="172"
@@ -1221,8 +1283,36 @@ $windowXaml = @'
                                 Style="{StaticResource ZcGhost}" Margin="0,0,0,10"/>
                       </WrapPanel>
                       <CheckBox x:Name="ChkStartupUpdates" Style="{StaticResource ZcCheck}" Margin="0,6,0,0"
-                                Content="Проверять обновления при запуске GUI"/>
-                      <TextBlock Text="Новая версия ставится рядом; списки и настройки переносятся."
+                                Content="Проверять обновления zapret и GUI при запуске"/>
+                      <TextBlock Text="Новая версия zapret ставится рядом; списки и настройки переносятся."
+                                 Style="{StaticResource ZcHint}" Margin="0,10,0,0"/>
+                    </StackPanel>
+                  </Border>
+                  <Border Style="{StaticResource ZcCard}" Margin="0">
+                    <StackPanel>
+                      <TextBlock Text="Обновление Zapret Control" Style="{StaticResource ZcCardTitle}"/>
+                      <TextBlock Text="Новая версия GUI скачивается с github.com/Bugulmekas/zapret-gui."
+                                 Style="{StaticResource ZcHint}" Margin="0,6,0,14"/>
+                      <Border Background="{DynamicResource Field}" CornerRadius="10" Padding="14,12">
+                        <StackPanel>
+                          <TextBlock x:Name="LblGuiLocal" Text="Установлено: —"
+                                     FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource Ink}"/>
+                          <TextBlock x:Name="LblGuiLatest" Text="Последняя на GitHub: —"
+                                     FontSize="12.5" Foreground="{DynamicResource Muted}" Margin="0,4,0,0"/>
+                          <TextBlock x:Name="LblGuiStatus" Text="Проверка ещё не выполнялась"
+                                     FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource Muted}"
+                                     Margin="0,10,0,0"/>
+                        </StackPanel>
+                      </Border>
+                      <WrapPanel Margin="0,14,0,0">
+                        <Button x:Name="BtnGuiCheck" Content="Проверить GUI" Width="150"
+                                Style="{StaticResource ZcSecondary}" Margin="0,0,10,10"/>
+                        <Button x:Name="BtnGuiUpdate" Content="Обновить GUI" Width="160"
+                                Style="{StaticResource ZcPrimary}" Margin="0,0,10,10" IsEnabled="False"/>
+                        <Button x:Name="LinkGuiReleases" Content="Релизы GUI на GitHub"
+                                Style="{StaticResource ZcGhost}" Margin="0,0,0,10"/>
+                      </WrapPanel>
+                      <TextBlock Text="Скрипты заменяются на месте, настройки в data\config.json сохраняются, приложение перезапустится."
                                  Style="{StaticResource ZcHint}" Margin="0,10,0,0"/>
                     </StackPanel>
                   </Border>
@@ -1286,7 +1376,7 @@ $windowXaml = @'
           <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
             <Button x:Name="BtnAboutFooter" Content="О программе" Style="{StaticResource ZcGhost}"
                     Height="24" Margin="0,0,8,0"/>
-            <TextBlock x:Name="FooterVersion" Text="1.2.0 · MIT" FontSize="11.5"
+            <TextBlock x:Name="FooterVersion" Text="1.3.0 · MIT" FontSize="11.5"
                        Foreground="{DynamicResource Muted}" VerticalAlignment="Center"/>
           </StackPanel>
         </Grid>
@@ -1319,6 +1409,8 @@ $script:StatusLabel       = Get-Ui 'StatusLabel'
 $script:AdminPill         = Get-Ui 'AdminPill'
 $script:AdminPillText     = Get-Ui 'AdminPillText'
 $script:AdminPillDot      = Get-Ui 'AdminPillDot'
+$script:VpnPill           = Get-Ui 'VpnPill'
+$script:VpnPillText       = Get-Ui 'VpnPillText'
 $script:ChkAutostart      = Get-Ui 'ChkAutostart'
 $script:ChkBatUpdates     = Get-Ui 'ChkBatUpdates'
 $script:ChkAutoScroll     = Get-Ui 'ChkAutoScroll'
@@ -1331,9 +1423,18 @@ $script:LblServiceUsing   = Get-Ui 'LblServiceUsing'
 $script:LblUpdateLocal    = Get-Ui 'LblUpdateLocal'
 $script:LblUpdateLatest   = Get-Ui 'LblUpdateLatest'
 $script:LblUpdateStatus   = Get-Ui 'LblUpdateStatus'
+$script:LblGuiLocal       = Get-Ui 'LblGuiLocal'
+$script:LblGuiLatest      = Get-Ui 'LblGuiLatest'
+$script:LblGuiStatus      = Get-Ui 'LblGuiStatus'
+$script:BtnGuiUpdate      = Get-Ui 'BtnGuiUpdate'
+$script:LatestGuiRelease  = $null
+$script:GuiUpdateAvailable = $false
+$script:LblGuiLocal.Text  = 'Установлено: ' + $script:ZC_AppVersion
 $script:TxtReleaseNotes   = Get-Ui 'TxtReleaseNotes'
 $script:BtnRestartService = Get-Ui 'BtnRestartService'
 $script:BtnRemoveService  = Get-Ui 'BtnRemoveService'
+$script:BtnStartService   = Get-Ui 'BtnStartService'
+$script:BtnStopService    = Get-Ui 'BtnStopService'
 $script:BtnInstallUpdate  = Get-Ui 'BtnInstallUpdate'
 
 $script:StatusLabels = @{
@@ -1341,6 +1442,7 @@ $script:StatusLabels = @{
     Winws    = Get-Ui 'StatusWinws'
     Strategy = Get-Ui 'StatusStrategy'
     Ipset    = Get-Ui 'StatusIpset'
+    WinDivert = Get-Ui 'StatusWinDivert'
 }
 $script:HeaderSubtitle = Get-Ui 'HeaderSubtitle'
 
@@ -1525,6 +1627,20 @@ function Confirm-Ui {
     return [bool](Show-ZcDialog -Text $Text -Title $Title -Kind 'question' -Confirm)
 }
 
+function Confirm-VpnConflict {
+    param([string]$Where = 'zapret')
+
+    $vpn = @(Get-VpnConflicts)
+    if ($vpn.Count -eq 0) { return $true }
+
+    $list = ($vpn -join ', ')
+    Write-UiLog ('Обнаружен VPN/прокси: ' + $list + '. Вместе с zapret интернет обычно перестаёт работать.') 'Yellow'
+    if ($script:VpnWarningShown) { return $true }
+    $script:VpnWarningShown = $true
+
+    return (Confirm-Ui ("Обнаружен активный VPN/прокси: $list.`n`nVPN и zapret вместе обычно полностью отключают интернет.`nЕсли интернет пропадёт — выключите VPN.`n`nВсё равно запустить $Where?") 'VPN и zapret')
+}
+
 function Set-StatusValue {
     param([string]$Key, [string]$Text, [object]$Color)
     $label = $script:StatusLabels[$Key]
@@ -1537,16 +1653,49 @@ function Set-StatusValue {
 function Set-AdminPill {
     param([bool]$IsAdmin)
     if (-not $script:AdminPillText) { return }
+
+    $neon = ($script:ThemeName -eq 'neon')
+
     if ($IsAdmin) {
-        $script:AdminPill.Background = $script:BrPillOk
-        $script:AdminPillText.Text = 'администратор'
-        $script:AdminPillText.Foreground = $script:BrGreen
-        $script:AdminPillDot.Fill = $script:BrPillOkDot
+        if ($neon) {
+            if (-not $script:AdminPillShimmer) {
+                $script:AdminPill.Background = New-ShimmerBrush
+                $script:AdminPill.Effect = [Windows.Media.Effects.Effect](New-Glow '#00F5FF' 14 0.5)
+                $script:AdminPillText.Foreground = Get-Brush '#EAFBFF'
+                $script:AdminPillDot.Fill = Get-Brush '#EAFBFF'
+                $script:AdminPillShimmer = $true
+            }
+        } else {
+            $script:AdminPillShimmer = $false
+            $script:AdminPill.Effect = $null
+            $script:AdminPill.Background = $script:BrPillOk
+            $script:AdminPillText.Text = 'администратор'
+            $script:AdminPillText.Foreground = $script:BrGreen
+            $script:AdminPillDot.Fill = $script:BrPillOkDot
+        }
     } else {
+        $script:AdminPillShimmer = $false
+        $script:AdminPill.Effect = $null
         $script:AdminPill.Background = $script:BrPillBad
         $script:AdminPillText.Text = 'нет прав'
         $script:AdminPillText.Foreground = $script:BrRed
         $script:AdminPillDot.Fill = $script:BrPillBadDot
+    }
+}
+
+function Update-VpnPill {
+    if (-not $script:VpnPill) { return }
+    if (((Get-Date) - $script:VpnStateChecked).TotalSeconds -lt 10) { return }
+    $script:VpnStateChecked = Get-Date
+
+    $vpn = @(Get-VpnConflicts)
+    if ($vpn.Count -gt 0) {
+        try {
+            $script:VpnPill.ToolTip = 'Обнаружен VPN/прокси: ' + ($vpn -join ', ') + '. Вместе с zapret интернет обычно не работает.'
+            $script:VpnPill.Visibility = [Windows.Visibility]::Visible
+        } catch { }
+    } else {
+        try { $script:VpnPill.Visibility = [Windows.Visibility]::Collapsed } catch { }
     }
 }
 
@@ -1599,6 +1748,8 @@ function Start-StrategyInternal {
     $batPath = Join-Path $script:ZapretRoot $Name
     if (-not (Test-Path -LiteralPath $batPath)) { Show-UiError ("Файл стратегии не найден:`n" + $batPath); return $false }
 
+    if (-not $NoConfirm -and -not (Confirm-VpnConflict 'стратегию')) { return $false }
+
     $service = Get-Service -Name 'zapret' -ErrorAction SilentlyContinue
     if ($service -and $service.Status -eq 'Running') {
         if (-not $NoConfirm) {
@@ -1642,6 +1793,9 @@ function Start-StrategyInternal {
     if ($processes.Count -gt 0) {
         $pids = ($processes | ForEach-Object { $_.Id }) -join ', '
         Write-UiLog ('winws.exe запущен (PID: ' + $pids + ')') 'Green'
+        if ($service) {
+            Write-UiLog 'Служба не используется — zapret работает в ручном режиме.' 'Gray'
+        }
         $script:Config.LastStartedStrategy = $Name
         Save-Config
         Set-BusyStatus 'zapret запущен'
@@ -1708,6 +1862,8 @@ function Install-ServiceInternal {
         if (-not (Confirm-Ui $text 'Установка службы')) { return $false }
     }
 
+    if (-not $NoConfirm -and -not (Confirm-VpnConflict 'службу')) { return $false }
+
     $argLine = Get-WinwsArgs -BatPath $batPath -Root $script:ZapretRoot
     if (-not $argLine) { Show-UiError ("Не удалось извлечь аргументы winws из " + $StrategyName); return $false }
 
@@ -1752,12 +1908,12 @@ function Install-ServiceInternal {
     New-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\zapret' `
         -Name 'zapret-discord-youtube' -Value $StrategyName -PropertyType String -Force | Out-Null
 
-    try {
-        Start-Service -Name 'zapret' -ErrorAction Stop
-    } catch {
-        Write-UiLog ('Не удалось запустить службу: ' + $_.Exception.Message) 'Red'
+    if (-not (Start-ZapretService)) {
+        $message = 'Служба создана, но не запустилась.'
+        if ($script:ZC_LastServiceError) { $message += ' ' + $script:ZC_LastServiceError }
+        Write-UiLog $message 'Red'
     }
-    Start-Sleep -Seconds 1
+    Start-Sleep -Milliseconds 400
 
     $service = Get-Service -Name 'zapret' -ErrorAction SilentlyContinue
     if ($service -and $service.Status -eq 'Running') {
@@ -1840,19 +1996,70 @@ function Remove-ServiceAction {
     Update-AllStatus
 }
 
+function Start-ServiceAction {
+    $service = Get-Service -Name 'zapret' -ErrorAction SilentlyContinue
+    if (-not $service) {
+        Show-UiInfo 'Служба «zapret» не установлена. Установите её кнопкой «Установить службу».'
+        return
+    }
+
+    if (-not (Confirm-VpnConflict 'службу')) { return }
+
+    Set-BusyStatus 'Запуск службы...'
+    Write-UiLog 'Запуск службы zapret...' 'Cyan'
+    if (Start-ZapretService) {
+        Write-UiLog 'Служба запущена, winws.exe работает.' 'Green'
+        Set-BusyStatus 'Служба запущена'
+    } else {
+        $message = 'Не удалось запустить службу «zapret».'
+        if ($script:ZC_LastServiceError) { $message += "`n`n" + $script:ZC_LastServiceError }
+        $message += "`n`nПроверьте журнал и раздел «Инструменты» → «Диагностика»."
+        Write-UiLog $message 'Red'
+        Show-UiError $message 'Служба zapret'
+        Set-BusyStatus 'Ошибка запуска службы'
+    }
+    Update-AllStatus
+}
+
+function Stop-ServiceAction {
+    $service = Get-Service -Name 'zapret' -ErrorAction SilentlyContinue
+    if (-not $service) { Show-UiInfo 'Служба «zapret» не установлена.'; return }
+
+    Set-BusyStatus 'Остановка службы...'
+    Write-UiLog 'Остановка службы zapret...' 'Cyan'
+    Stop-ZapretService | Out-Null
+    try { $service.Refresh() } catch { }
+
+    if ($service.Status -eq 'Stopped') {
+        Write-UiLog 'Служба и winws.exe остановлены, драйвер WinDivert освобождён.' 'Green'
+        Set-BusyStatus 'Служба остановлена'
+    } else {
+        Write-UiLog ('Служба в состоянии: ' + $service.Status) 'Yellow'
+        Set-BusyStatus 'Служба останавливается'
+    }
+    Update-AllStatus
+}
+
 function Restart-ServiceAction {
     $service = Get-Service -Name 'zapret' -ErrorAction SilentlyContinue
     if (-not $service) { Show-UiInfo 'Служба «zapret» не установлена.'; return }
 
+    if (-not (Confirm-VpnConflict 'службу')) { return }
+
     Set-BusyStatus 'Перезапуск службы...'
-    try {
-        Restart-Service -Name 'zapret' -Force -ErrorAction Stop
+    Write-UiLog 'Перезапуск службы zapret...' 'Cyan'
+
+    Stop-ZapretService | Out-Null
+    if (Start-ZapretService) {
         Write-UiLog 'Служба перезапущена.' 'Green'
-    } catch {
-        Write-UiLog ('Ошибка перезапуска службы: ' + $_.Exception.Message) 'Red'
-        Show-UiError $_.Exception.Message
+        Set-BusyStatus 'Служба перезапущена'
+    } else {
+        $message = 'Не удалось перезапустить службу «zapret».'
+        if ($script:ZC_LastServiceError) { $message += "`n`n" + $script:ZC_LastServiceError }
+        Write-UiLog $message 'Red'
+        Show-UiError $message 'Служба zapret'
+        Set-BusyStatus 'Ошибка перезапуска службы'
     }
-    Start-Sleep -Milliseconds 800
     Update-AllStatus
 }
 
@@ -1884,22 +2091,36 @@ function Set-AutostartAction {
 function Update-AllStatus {
     if (-not $script:StatusLabels -or $script:StatusLabels.Count -eq 0) { return }
 
-    # Служба
+    # Режим работы: служба Windows или ручной запуск winws.exe
     $service = Get-ServiceInfo -Name 'zapret'
-    if (-not $service.Installed) {
+    $winws = @(Get-WinwsProcesses)
+    if ($service.Status -eq 'Running') {
+        Set-StatusValue 'Service' 'служба работает' $script:BrGreen
+    } elseif ($winws.Count -gt 0) {
+        if ($service.Installed) {
+            Set-StatusValue 'Service' 'ручной запуск' $script:BrGreen
+        } else {
+            Set-StatusValue 'Service' 'вручную, без службы' $script:BrGreen
+        }
+    } elseif (-not $service.Installed) {
         Set-StatusValue 'Service' 'не установлена' $script:BrMuted
-    } elseif ($service.Status -eq 'Running') {
-        Set-StatusValue 'Service' 'работает' $script:BrGreen
     } else {
         Set-StatusValue 'Service' ('остановлена' + $(if ($service.Status -ne 'Stopped') { " ($($service.Status))" } else { '' })) $script:BrOrange
     }
 
     # Процесс winws
-    $winws = @(Get-WinwsProcesses)
     if ($winws.Count -gt 0) {
         Set-StatusValue 'Winws' ('работает · PID ' + (($winws | ForEach-Object { $_.Id }) -join ', ')) $script:BrGreen
     } else {
         Set-StatusValue 'Winws' 'не запущен' $script:BrMuted
+    }
+
+    # Драйвер WinDivert
+    switch (Get-WinDivertState) {
+        'running' { Set-StatusValue 'WinDivert' 'активен' $script:BrGreen }
+        'stale'   { Set-StatusValue 'WinDivert' 'остался без winws' $script:BrOrange }
+        'stopped' { Set-StatusValue 'WinDivert' 'остановлен' $script:BrMuted }
+        default   { Set-StatusValue 'WinDivert' 'не активен' $script:BrMuted }
     }
 
     # Стратегия службы
@@ -1912,6 +2133,7 @@ function Update-AllStatus {
 
     # Права (индикатор в шапке)
     Set-AdminPill ([bool](Test-IsAdmin))
+    Update-VpnPill
 
     # IPSet
     $ipset = Get-IpsetState -Root $script:ZapretRoot
@@ -1943,6 +2165,12 @@ function Update-AllStatus {
             }
             $script:BtnRestartService.IsEnabled = $service.Installed
             $script:BtnRemoveService.IsEnabled = $service.Installed
+            if ($script:BtnStartService) {
+                $script:BtnStartService.IsEnabled = ($service.Installed -and $service.Status -ne 'Running' -and $service.Status -ne 'StartPending')
+            }
+            if ($script:BtnStopService) {
+                $script:BtnStopService.IsEnabled = ($service.Installed -and $service.Status -ne 'Stopped' -and $service.Status -ne 'StopPending')
+            }
         } finally {
             $script:SyncingUi = $false
         }
@@ -2365,13 +2593,13 @@ function Run-DiagnosticsAction {
         $fails++
     }
 
-    # VPN
-    $vpnServices = @($allServices | Where-Object { $_.Name -match 'VPN' -or $_.DisplayName -match 'VPN' })
-    if ($vpnServices.Count -gt 0) {
-        Write-Check 'VPN-службы' 'warn' ('найдены: ' + (($vpnServices | ForEach-Object { $_.Name }) -join ', '))
+    # VPN / прокси
+    $vpnConflicts = @(Get-VpnConflicts)
+    if ($vpnConflicts.Count -gt 0) {
+        Write-Check 'VPN / прокси' 'warn' ('активны: ' + ($vpnConflicts -join ', ') + ' — вместе с zapret интернет может пропасть')
         $warns++
     } else {
-        Write-Check 'VPN-службы' 'ok'
+        Write-Check 'VPN / прокси' 'ok'
     }
 
     # Secure DNS
@@ -2405,17 +2633,22 @@ function Run-DiagnosticsAction {
         }
     }
 
-    # WinDivert без winws
+    # WinDivert
     $winws = @(Get-WinwsProcesses)
-    $winDivert = Get-Service -Name 'WinDivert' -ErrorAction SilentlyContinue
-    if ($winws.Count -eq 0 -and $winDivert -and ($winDivert.Status -eq 'Running' -or $winDivert.Status -eq 'StopPending')) {
-        Write-Check 'WinDivert' 'warn' 'служба активна, хотя winws.exe не запущен'
+    $winDivertState = Get-WinDivertState
+    if ($winDivertState -eq 'stale') {
+        Write-Check 'WinDivert' 'warn' 'драйвер активен, хотя winws.exe не запущен'
         $warns++
         if (Confirm-Ui "Обнаружена активная служба WinDivert без запущенного winws.exe.`n`nПопытаться удалить её?" 'Диагностика') {
             Remove-WinDivertLeftovers
         }
+    } elseif ($winDivertState -eq 'running') {
+        Write-Check 'WinDivert' 'ok' 'активен и используется winws.exe'
+    } elseif ($winDivertState -eq 'absent' -and $winws.Count -gt 0) {
+        Write-Check 'WinDivert' 'warn' 'winws.exe запущен, но драйвер не зарегистрирован'
+        $warns++
     } else {
-        Write-Check 'WinDivert' 'ok'
+        Write-Check 'WinDivert' 'ok' 'не активен'
     }
 
     # Конфликтующие обходы
@@ -2676,7 +2909,7 @@ function Check-UpdatesAction {
         $script:LblUpdateLatest.Text = 'Последняя на GitHub: ' + $release.Tag
     }
     if ($script:TxtReleaseNotes) {
-        if ($release.Body) { $script:TxtReleaseNotes.Text = $release.Body }
+        if ($release.Body) { $script:TxtReleaseNotes.Text = ConvertFrom-MarkdownNotes $release.Body }
         else { $script:TxtReleaseNotes.Text = '(описание релиза пустое)' }
     }
 
@@ -2705,6 +2938,144 @@ function Check-UpdatesAction {
     }
 
     Set-BusyStatus 'Готово'
+}
+
+function Check-GuiUpdatesAction {
+    param([switch]$Silent)
+
+    if (-not $Silent) { Set-BusyStatus 'Проверка обновления GUI...' }
+    $release = Get-LatestGuiRelease
+    if (-not $release) {
+        if ($script:LblGuiStatus) {
+            $script:LblGuiStatus.Text = 'Ошибка проверки GitHub'
+            $script:LblGuiStatus.Foreground = $script:BrRed
+        }
+        if (-not $Silent) { Write-UiLog 'Не удалось проверить обновление GUI.' 'Red' }
+        return
+    }
+
+    $script:LatestGuiRelease = $release
+    $local = ConvertTo-AppVersion $script:ZC_AppVersion
+    $remote = ConvertTo-AppVersion $release.Tag
+    if ($script:LblGuiLatest) { $script:LblGuiLatest.Text = 'Последняя на GitHub: ' + $release.Tag }
+
+    $available = ($remote -and (-not $local -or $remote -gt $local))
+    $script:GuiUpdateAvailable = $available
+    if ($script:BtnGuiUpdate) { $script:BtnGuiUpdate.IsEnabled = $available }
+
+    if ($available) {
+        if ($script:LblGuiStatus) {
+            $script:LblGuiStatus.Text = 'Доступно обновление ' + $release.Tag
+            $script:LblGuiStatus.Foreground = $script:BrGreen
+        }
+        Write-UiLog ('Доступно обновление GUI: ' + $release.Tag + ' (установлено ' + $script:ZC_AppVersion + ')') 'Green'
+        if (-not $Silent) {
+            if (Confirm-Ui ("Доступна новая версия Zapret Control: $($release.Tag)`nУстановлена: $($script:ZC_AppVersion)`n`nОбновить сейчас? Приложение перезапустится.") 'Обновление GUI') {
+                Install-GuiUpdateAction
+            }
+        }
+    } else {
+        if ($script:LblGuiStatus) {
+            if ($local -and $remote -and $local -gt $remote) {
+                $script:LblGuiStatus.Text = 'Локальная версия новее релиза'
+            } else {
+                $script:LblGuiStatus.Text = 'Установлена последняя версия'
+            }
+            $script:LblGuiStatus.Foreground = $script:BrMuted
+        }
+        if (-not $Silent) { Write-UiLog 'Установлена последняя версия GUI.' 'Green' }
+    }
+}
+
+function Install-GuiUpdateAction {
+    if (-not $script:GuiUpdateAvailable -or -not $script:LatestGuiRelease) { return }
+
+    $release = $script:LatestGuiRelease
+    if (-not $release.AssetUrl) {
+        Show-UiError 'В релизе GUI нет zip-архива. Обновите со страницы релизов вручную.'
+        return
+    }
+
+    if (-not (Confirm-Ui ("Скачать и установить Zapret Control $($release.Tag)?`n`nСкрипты будут заменены, настройки сохранятся.`nПосле установки приложение перезапустится.") 'Обновление GUI')) { return }
+
+    $workDir = Join-Path $env:TEMP ('zapret-gui-update-' + [guid]::NewGuid().ToString('N'))
+
+    try {
+        New-Item -ItemType Directory -Path $workDir -Force | Out-Null
+
+        $zipPath = Join-Path $workDir $release.AssetName
+        Set-BusyStatus 'Скачивание GUI...'
+        Write-UiLog ('Скачивание GUI: ' + $release.AssetUrl) 'Cyan'
+        if (-not (Invoke-CurlDownload -Url $release.AssetUrl -OutFile $zipPath -TimeoutSec 600)) {
+            throw 'Не удалось скачать архив GUI.'
+        }
+
+        Set-BusyStatus 'Распаковка архива...'
+        $extractDir = Join-Path $workDir 'extract'
+        Expand-Archive -LiteralPath $zipPath -DestinationPath $extractDir -Force
+
+        $sourceScript = Get-ChildItem -LiteralPath $extractDir -Recurse -Filter 'ZapretControl.ps1' -File -ErrorAction SilentlyContinue |
+            Where-Object { Test-Path -LiteralPath (Join-Path $_.DirectoryName 'ZapretCommon.ps1') } |
+            Select-Object -First 1
+        if (-not $sourceScript) { throw 'В архиве не найдены ZapretControl.ps1 и ZapretCommon.ps1.' }
+        $sourceDir = $sourceScript.DirectoryName
+
+        foreach ($name in @('ZapretControl.ps1', 'ZapretCommon.ps1')) {
+            $errors = $null
+            [void][Management.Automation.Language.Parser]::ParseFile((Join-Path $sourceDir $name), [ref]$null, [ref]$errors)
+            if ($errors.Count -gt 0) { throw ("Новый файл $name содержит ошибки синтаксиса.") }
+        }
+
+        $commonText = [IO.File]::ReadAllText((Join-Path $sourceDir 'ZapretCommon.ps1'))
+        if ($commonText -notmatch "ZC_AppVersion\s*=\s*'([^']+)'") { throw 'В архиве не найдена версия GUI.' }
+        if ($matches[1] -ne $release.Tag.TrimStart('v')) { throw "Архив содержит версию $($matches[1]) вместо $($release.Tag)." }
+
+        $backupDir = Join-Path $script:DataDir ('backup-' + $script:ZC_AppVersion)
+        New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
+
+        $files = @('ZapretControl.ps1', 'ZapretCommon.ps1', 'ZapretControl.bat')
+        foreach ($name in $files) {
+            $current = Join-Path $script:AppDir $name
+            if (Test-Path -LiteralPath $current) {
+                Copy-Item -LiteralPath $current -Destination (Join-Path $backupDir $name) -Force
+            }
+        }
+
+        Set-BusyStatus 'Установка GUI...'
+        foreach ($name in $files) {
+            $candidate = Join-Path $sourceDir $name
+            if (Test-Path -LiteralPath $candidate) {
+                Copy-Item -LiteralPath $candidate -Destination (Join-Path $script:AppDir $name) -Force
+            }
+        }
+
+        Write-UiLog ('GUI обновлён до ' + $release.Tag + '. Перезапуск...') 'Green'
+        Set-BusyStatus 'GUI обновлён, перезапуск'
+        Show-UiInfo ("Zapret Control обновлён до $($release.Tag).`n`nПриложение сейчас перезапустится.") 'Обновление GUI'
+
+        $launcher = Join-Path $script:AppDir 'ZapretControl.bat'
+        if (Test-Path -LiteralPath $launcher) {
+            Start-Process -FilePath $launcher -WorkingDirectory $script:AppDir | Out-Null
+        } else {
+            Start-Process -FilePath 'powershell.exe' -ArgumentList ('-NoProfile -ExecutionPolicy Bypass -Sta -File "' + (Join-Path $script:AppDir 'ZapretControl.ps1') + '"') | Out-Null
+        }
+
+        $script:RestartTimer = New-Object Windows.Threading.DispatcherTimer
+        $script:RestartTimer.Interval = [TimeSpan]::FromMilliseconds(500)
+        $script:RestartTimer.Add_Tick({
+            $script:RestartTimer.Stop()
+            try { $script:Window.Close() } catch { }
+        })
+        $script:RestartTimer.Start()
+    } catch {
+        Write-UiLog ('Ошибка обновления GUI: ' + $_.Exception.Message) 'Red'
+        Show-UiError $_.Exception.Message 'Обновление GUI'
+        Set-BusyStatus 'Ошибка обновления GUI'
+    } finally {
+        if (Test-Path -LiteralPath $workDir) {
+            Remove-Item -LiteralPath $workDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
 }
 
 function Install-UpdateAction {
@@ -3047,6 +3418,12 @@ $script:LstStrategies.Add_MouseDoubleClick({
 # ---------------------------------------------------------------------------
 #  События: служба
 # ---------------------------------------------------------------------------
+$script:BtnStartService.Add_Click({
+    Invoke-UiSafe { Start-ServiceAction }
+})
+$script:BtnStopService.Add_Click({
+    Invoke-UiSafe { Stop-ServiceAction }
+})
 $script:BtnRestartService.Add_Click({
     Invoke-UiSafe { Restart-ServiceAction }
 })
@@ -3162,6 +3539,15 @@ $script:ChkAutostart.Add_Click({
 $script:BtnInstallUpdate.Add_Click({
     Invoke-UiSafe { Install-UpdateAction }
 })
+(Get-Ui 'BtnGuiCheck').Add_Click({
+    Invoke-UiSafe { Check-GuiUpdatesAction }
+})
+$script:BtnGuiUpdate.Add_Click({
+    Invoke-UiSafe { Install-GuiUpdateAction }
+})
+(Get-Ui 'LinkGuiReleases').Add_Click({
+    try { Start-Process -FilePath $script:ZC_GuiReleasesPage | Out-Null } catch { }
+})
 $script:ChkStartupUpdates.Add_Click({
     $script:Config.CheckUpdatesOnStart = ($script:ChkStartupUpdates.IsChecked -eq $true)
     Save-Config
@@ -3242,7 +3628,10 @@ $script:StartupTimer.Interval = [TimeSpan]::FromMilliseconds(900)
 $script:StartupTimer.Add_Tick({
     $script:StartupTimer.Stop()
     try {
-        if ($script:Config.CheckUpdatesOnStart -and -not $Preview) { Check-UpdatesAction -Silent }
+        if ($script:Config.CheckUpdatesOnStart -and -not $Preview) {
+            Check-UpdatesAction -Silent
+            Check-GuiUpdatesAction -Silent
+        }
     } catch { }
 })
 $script:StartupTimer.Start()

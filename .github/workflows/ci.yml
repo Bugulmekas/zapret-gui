@@ -46,6 +46,7 @@ jobs:
             'ZapretControl.bat',
             'README.md',
             'LICENSE',
+            'NOTICE.md',
             'CHANGELOG.md'
           )
           foreach ($file in $required) {

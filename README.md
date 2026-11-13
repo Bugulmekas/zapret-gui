@@ -1,20 +1,24 @@
-# Zapret Control
+﻿<!-- neon:header:start -->
+<p align="center">
+  <img src="assets/neon-header.svg" alt="Zapret Control" width="100%">
+</p>
+<!-- neon:header:end -->
 
 <p align="center">
-  <a href="https://github.com/lordsamper9-cyber/zapret-gui/releases/latest">
-    <img src="https://img.shields.io/github/v/release/lordsamper9-cyber/zapret-gui?style=for-the-badge&label=release&logo=github&logoColor=white" alt="Последний релиз">
+  <a href="https://github.com/Bugulmekas/zapret-gui/releases/latest">
+    <img src="https://img.shields.io/github/v/release/Bugulmekas/zapret-gui?style=for-the-badge&labelColor=0D1117&color=00F5FF&logo=github&logoColor=00F5FF" alt="Последний релиз">
   </a>
-  <a href="https://github.com/lordsamper9-cyber/zapret-gui/releases">
-    <img src="https://img.shields.io/github/downloads/lordsamper9-cyber/zapret-gui/total?style=for-the-badge&label=downloads&logo=github&logoColor=white" alt="Скачивания">
+  <a href="https://github.com/Bugulmekas/zapret-gui/releases">
+    <img src="https://img.shields.io/github/downloads/Bugulmekas/zapret-gui/total?style=for-the-badge&labelColor=0D1117&color=7A5CFF&logo=github&logoColor=7A5CFF" alt="Скачивания">
   </a>
-  <a href="https://github.com/lordsamper9-cyber/zapret-gui/actions/workflows/ci.yml">
-    <img src="https://github.com/lordsamper9-cyber/zapret-gui/actions/workflows/ci.yml/badge.svg" alt="CI">
+  <a href="https://github.com/Bugulmekas/zapret-gui/actions/workflows/ci.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/Bugulmekas/zapret-gui/ci.yml?style=for-the-badge&label=CI&labelColor=0D1117&color=00F5FF&logo=githubactions&logoColor=00F5FF" alt="CI">
   </a>
   <a href="LICENSE">
-    <img src="https://img.shields.io/github/license/lordsamper9-cyber/zapret-gui?style=for-the-badge&logo=opensourceinitiative&logoColor=white" alt="Лицензия">
+    <img src="https://img.shields.io/github/license/Bugulmekas/zapret-gui?style=for-the-badge&labelColor=0D1117&color=7A5CFF&logo=opensourceinitiative&logoColor=7A5CFF" alt="Лицензия">
   </a>
-  <img src="https://img.shields.io/badge/platform-Windows%2010%2F11-0078D4?style=for-the-badge&logo=windows&logoColor=white" alt="Платформа">
-  <img src="https://img.shields.io/badge/PowerShell-5.1-5391FE?style=for-the-badge&logo=powershell&logoColor=white" alt="PowerShell 5.1">
+  <img src="https://img.shields.io/badge/Windows_10%2F11-0D1117?style=for-the-badge&logo=windows11&logoColor=00F5FF" alt="Платформа">
+  <img src="https://img.shields.io/badge/PowerShell_5.1-0D1117?style=for-the-badge&logo=powershell&logoColor=00F5FF" alt="PowerShell 5.1">
 </p>
 
 <p align="center">
@@ -31,8 +35,8 @@
 - **Права:** требуются администратор (запрашиваются автоматически)
 
 <p align="center">
-  <a href="https://github.com/lordsamper9-cyber/zapret-gui/releases/latest">
-    <img src="https://img.shields.io/badge/%E2%AC%87%20%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C-1.0.0-2ea44f?style=for-the-badge" alt="Скачать">
+  <a href="https://github.com/Bugulmekas/zapret-gui/releases/latest">
+    <img src="https://img.shields.io/badge/%E2%AC%87_%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C-1.0.0-FF2BD6?style=for-the-badge&labelColor=0D1117&logo=github&logoColor=white" alt="Скачать">
   </a>
 </p>
 
@@ -54,7 +58,7 @@
 
 ## Установка
 
-1. Скачайте последний архив со страницы **[Releases](https://github.com/lordsamper9-cyber/zapret-gui/releases/latest)**.
+1. Скачайте последний архив со страницы **[Releases](https://github.com/Bugulmekas/zapret-gui/releases/latest)**.
 2. Распакуйте его рядом с папкой zapret так, чтобы структура была такой:
 
 ```
@@ -172,3 +176,8 @@ docs\                скриншоты
 <p align="center">
   Если программа оказалась полезной — поставьте ⭐ репозиторию.
 </p>
+<!-- neon:footer:start -->
+<p align="center">
+  <img src="assets/neon-footer.svg" alt="Bugulmek" width="100%">
+</p>
+<!-- neon:footer:end -->

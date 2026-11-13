@@ -11,7 +11,7 @@
     <img src="https://github.com/lordsamper9-cyber/zapret-gui/actions/workflows/ci.yml/badge.svg" alt="CI">
   </a>
   <a href="LICENSE">
-    <img src="https://img.shields.io/github/license/lordsamper9-cyber/zapret-gui?style=for-the-badge" alt="Лицензия">
+    <img src="https://img.shields.io/github/license/lordsamper9-cyber/zapret-gui?style=for-the-badge&logo=opensourceinitiative&logoColor=white" alt="Лицензия">
   </a>
   <img src="https://img.shields.io/badge/platform-Windows%2010%2F11-0078D4?style=for-the-badge&logo=windows&logoColor=white" alt="Платформа">
   <img src="https://img.shields.io/badge/PowerShell-5.1-5391FE?style=for-the-badge&logo=powershell&logoColor=white" alt="PowerShell 5.1">

@@ -1,0 +1,41 @@
+name: Предложение
+description: Идея новой функции или улучшения
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Опишите, какую задачу должно решать улучшение. Чем конкретнее — тем лучше.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Какую проблему решает
+      placeholder: Сейчас приходится..., хотелось бы...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Предлагаемое решение
+      placeholder: Добавить кнопку/вкладку/настройку...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Альтернативы
+      description: Что вы пробовали или рассматривали
+    validations:
+      required: false
+
+  - type: input
+    id: zapret-version
+    attributes:
+      label: Версия пакета zapret
+      placeholder: "1.10.4"
+    validations:
+      required: false

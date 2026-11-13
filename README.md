@@ -1,119 +1,172 @@
 # Zapret Control
 
-Графический управлятор для пакета **zapret-discord-youtube**.
+<p align="center">
+  <a href="https://github.com/lordsamper9-cyber/zapret-gui/releases/latest">
+    <img src="https://img.shields.io/github/v/release/lordsamper9-cyber/zapret-gui?style=for-the-badge&label=release" alt="Последний релиз">
+  </a>
+  <a href="https://github.com/lordsamper9-cyber/zapret-gui/releases">
+    <img src="https://img.shields.io/github/downloads/lordsamper9-cyber/zapret-gui/total?style=for-the-badge&label=downloads" alt="Скачивания">
+  </a>
+  <a href="https://github.com/lordsamper9-cyber/zapret-gui/actions/workflows/ci.yml">
+    <img src="https://github.com/lordsamper9-cyber/zapret-gui/actions/workflows/ci.yml/badge.svg" alt="CI">
+  </a>
+  <a href="LICENSE">
+    <img src="https://img.shields.io/github/license/lordsamper9-cyber/zapret-gui?style=for-the-badge" alt="Лицензия">
+  </a>
+  <img src="https://img.shields.io/badge/platform-Windows%2010%2F11-0078D4?style=for-the-badge&logo=windows&logoColor=white" alt="Платформа">
+  <img src="https://img.shields.io/badge/PowerShell-5.1-5391FE?style=for-the-badge&logo=powershell&logoColor=white" alt="PowerShell 5.1">
+</p>
 
-- GUI / форк: **Bugulmek**
-- Пакет zapret и источник обновлений: **Flowseal**
-- https://github.com/Flowseal/zapret-discord-youtube
+<p align="center">
+  <img src="docs/screenshot.png" alt="Zapret Control — главное окно" width="920">
+</p>
 
-Программа переносит в удобный интерфейс управление из `service.bat`, добавляет тест стратегий и автообновление пакета с GitHub.
+**Zapret Control** — графический управлятор для пакета [zapret-discord-youtube](https://github.com/Flowseal/zapret-discord-youtube) от **Flowseal**.
 
-## Требования
+Переносит в удобное окно всё управление из `service.bat`: установку и удаление службы, стратегии, игровой фильтр, IPSet, диагностику, обновление списков. Добавляет запуск стратегий без службы, тест стратегий и автообновление пакета прямо с GitHub.
 
-- Windows 10/11
-- PowerShell 5.1 (входит в Windows)
-- Права администратора (запрашиваются автоматически)
-- Папка `GUI` должна лежать рядом с папкой `zapret-discord-youtube-*`
+- **GUI / форк:** Bugulmek
+- **Пакет zapret и источник обновлений:** Flowseal
+- **Платформа:** Windows 10/11, PowerShell 5.1
+- **Права:** требуются администратор (запрашиваются автоматически)
+
+<p align="center">
+  <a href="https://github.com/lordsamper9-cyber/zapret-gui/releases/latest">
+    <img src="https://img.shields.io/badge/%E2%AC%87%20%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C-1.0.0-2ea44f?style=for-the-badge" alt="Скачать">
+  </a>
+</p>
+
+---
+
+## Возможности
+
+| Раздел | Что умеет |
+|---|---|
+| **Стратегии** | Список всех `general*.bat`, запуск и остановка `winws.exe`, двойной клик — быстрый запуск |
+| **Служба** | Установка, удаление, перезапуск, автозапуск при старте Windows, статус и текущая стратегия |
+| **Игровой фильтр** | Выключен / TCP и UDP / только TCP / только UDP, произвольные диапазоны портов |
+| **IPSet** | Режимы `any` / `none` / `loaded`, резервная копия списка, обновление с GitHub |
+| **Тест стратегий** | Запускает штатный `utils\test zapret.ps1` — тот же тест, что пункт 12 `service.bat` |
+| **Диагностика** | BFE, прокси, Adguard, Killer, Intel Connectivity, Check Point, SmartByte, VPN, DoH, WinDivert, конфликтующие службы |
+| **Инструменты** | Обновление IPSet и `hosts`, очистка кэша Discord, замена active fake, удаление конфликтного WinDivert |
+| **Обновление** | Проверка релизов через GitHub API, скачивание, распаковка в новую папку, перенос списков и переустановка службы |
+| **Журнал** | Вывод `winws.exe` в реальном времени, сохранение и очистка лога |
+
+## Установка
+
+1. Скачайте последний архив со страницы **[Releases](https://github.com/lordsamper9-cyber/zapret-gui/releases/latest)**.
+2. Распакуйте его рядом с папкой zapret так, чтобы структура была такой:
 
 ```
 F:\zapret\
-├─ GUI\                        ← эта программа
-└─ zapret-discord-youtube-1.10.3\
+├─ zapret-gui-1.0.0\              ← эта программа
+│  ├─ ZapretControl.bat
+│  ├─ ZapretControl.ps1
+│  └─ ZapretCommon.ps1
+└─ zapret-discord-youtube-1.10.x\
    ├─ service.bat
    ├─ bin\winws.exe
    └─ lists\ ...
 ```
 
-## Запуск
+3. Запустите **`ZapretControl.bat`** и разрешите запрос UAC.
+4. Выберите стратегию слева и нажмите **«Запустить»** (без службы) или **«Установить службу»**.
 
-Двойной клик по **`ZapretControl.bat`**.
+Если папка zapret лежит в другом месте, укажите её через меню **«Файл» → «Выбрать папку zapret…»**.
 
-Появится запрос UAC — разрешите запуск. Первый запуск может занять пару секунд.
+> Папка GUI может называться как угодно — программа сама находит `zapret-discord-youtube-*` рядом с собой.
 
-Если папка zapret не найдена автоматически, программа предложит указать её вручную (меню «Файл» → «Выбрать папку zapret…»).
+## Скриншоты
 
-## Возможности
+<p align="center">
+  <img src="docs/screenshot.png" alt="Главное окно" width="900">
+</p>
 
-### Стратегии
+## Как это работает
 
-- Список всех `general*.bat` из папки zapret.
-- **Запустить** — запускает `winws.exe` с аргументами выбранной стратегии (без установки службы).
-- **Остановить** — останавливает службу и все процессы `winws.exe`.
-- **Установить службу / Удалить службу** — то же, что пункты меню `service.bat`.
-- Двойной клик по стратегии — быстрый запуск.
+### Запуск без службы
 
-### Вкладка «Служба»
+Кнопка **«Запустить»** читает строку `winws.exe` из выбранного `general*.bat`, подставляет `%BIN%`, `%LISTS%`, `%GameFilterTCP%` и `%GameFilterUDP%`, создаёт временный `data\run-current.bat` и запускает `winws.exe` скрыто. Вывод пишется в журнал.
 
-- Автозапуск службы при старте Windows.
-- Перезапуск и удаление службы.
-- Кнопка **«Меню service.bat»** — открывает штатное консольное меню пакета на случай, если нужна функция, которой нет в GUI.
-- Открытие папки zapret.
+### Служба Windows
 
-### Вкладка «Настройки»
+Кнопка **«Установить службу»** создаёт службу `zapret` с аргументами выбранной стратегии и автозапуском — так же, как это делает `service.bat`. Текущая стратегия записывается в реестр и показывается в статусе.
 
-- **Игровой фильтр**: выключен / TCP и UDP / только TCP / только UDP, диапазоны портов.
-- **IPSet**: `any` / `none` / `loaded` (с резервной копией), кнопка обновления списка с GitHub.
-- **Автопроверка обновлений `.bat`** (`utils\check_updates.enabled`).
-- Пользовательские списки: `list-general-user.txt`, `list-exclude-user.txt`, `ipset-exclude-user.txt`.
+### Обновление пакета
 
-Изменения игрового фильтра и IPSet применяются после перезапуска zapret — GUI предложит перезапустить службу или ручной запуск.
-
-### Вкладка «Инструменты»
-
-- Обновление IPSet и файла `hosts`.
-- Диагностика конфликтов (BFE, прокси, Adguard, Killer, Intel Connectivity, Check Point, SmartByte, VPN, DoH, WinDivert, конфликтующие службы и т.д.).
-- Очистка кэша Discord.
-- Удаление «осиротевших» служб `WinDivert` / `WinDivert14`.
-- Замена active fake (`ACTIVE_DISCORD_UDP.bin`, `ACTIVE_GAME_UDP.bin`).
-
-### Вкладка «Тест стратегий»
-
-Запускает **штатный** `utils\test zapret.ps1` — тот же тест, что пункт 12 меню `service.bat`, в отдельном окне PowerShell.
-Перед тестом служба должна быть удалена, а `winws.exe` остановлен: GUI предупредит и сделает это сам.
-
-Дополнительно есть быстрая проверка соединения (Discord, YouTube, Google, Cloudflare).
-
-### Вкладка «Обновление»
-
-- Проверка последнего релиза через GitHub API.
-- Показ установленной и последней версии, описания релиза.
-- Проверка обновлений при запуске (можно отключить).
-
-Обновление скачивает zip-архив релиза и распаковывает его **в новую папку рядом** с текущей, например:
+GUI проверяет последний релиз через GitHub API, скачивает zip-архив и распаковывает его **в новую папку рядом**:
 
 ```
 F:\zapret\zapret-discord-youtube-1.10.4\
 ```
 
-Пользовательские списки и настройки (`lists\*-user.txt`, `ipset-all.txt`, `utils\game_filter.enabled`, `utils\check_updates.enabled`) переносятся в новую папку. GUI переключается на неё, а служба при необходимости переустанавливается. Старую папку можно удалить вручную.
+Пользовательские данные переносятся:
+
+- `lists\list-general-user.txt`
+- `lists\list-exclude-user.txt`
+- `lists\ipset-exclude-user.txt`
+- `lists\ipset-all.txt` и `.backup`
+- `utils\game_filter.enabled`
+- `utils\check_updates.enabled`
+
+После обновления GUI переключается на новую папку и при необходимости переустанавливает службу. Старую папку можно удалить вручную.
 
 ## Данные программы
 
-Всё служебное — в папке `GUI\data`:
+Служебные файлы лежат в `data\` и не попадают в git:
 
-- `config.json` — выбранная папка zapret, стратегия, настройки;
-- `winws.log` — вывод `winws.exe` при ручном запуске;
-- `run-current.bat` — временный файл запуска;
-- `ipset-new.txt` — временный файл обновления IPSet.
+| Файл | Назначение |
+|---|---|
+| `config.json` | папка zapret, выбранная стратегия, настройки |
+| `winws.log` | вывод `winws.exe` при ручном запуске |
+| `run-current.bat` | временный файл запуска |
+| `ipset-new.txt` | временный файл обновления IPSet |
 
 ## Диагностика
 
-- `ZapretControl.ps1 -SelfTest` — проверка без запуска окна: находит папку zapret, версию, IPSet, игровой фильтр, список стратегий и разбор аргументов `winws.exe`.
-- `ZapretControl.ps1 -Preview` — открыть окно на 1,5 секунды и закрыть (проверка, что интерфейс собирается).
+```powershell
+# Проверка без запуска окна: папка, версия, IPSet, игровой фильтр, стратегии, аргументы
+powershell -NoProfile -ExecutionPolicy Bypass -File .\ZapretControl.ps1 -SelfTest
+
+# Открыть окно на 5 секунд и закрыть (проверка сборки интерфейса)
+powershell -NoProfile -ExecutionPolicy Bypass -File .\ZapretControl.ps1 -Preview -PreviewSeconds 5
+```
 
 ## Частые проблемы
 
-| Проблема | Что делать |
+| Проблема | Решение |
 |---|---|
-| «Не удалось найти папку zapret» | Положите `GUI` рядом с `zapret-discord-youtube-*` или укажите папку через меню «Файл». |
-| `winws.exe` не запускается | Откройте «Инструменты» → «Диагностика», проверьте журнал внизу окна. Частые причины: занят WinDivert, блокирует антивирус, повреждена папка `bin`. |
-| Служба не устанавливается | Запустите от имени администратора, проверьте `bin\winws.exe`, при необходимости используйте «Меню service.bat». |
-| После обновления не работает zapret | Убедитесь, что GUI переключился на новую папку (статус вверху), при необходимости переустановите службу на вкладке «Служба». |
-| Тест стратегий не запускается | Удалите службу zapret и остановите `winws.exe` — тест не работает одновременно со службой. |
+| «Не удалось найти папку zapret» | Положите программу рядом с `zapret-discord-youtube-*` или укажите папку через меню «Файл» |
+| `winws.exe` не запускается | «Инструменты» → «Диагностика», проверьте журнал. Частые причины: занят WinDivert, блокирует антивирус, повреждена папка `bin` |
+| Служба не устанавливается | Запустите от имени администратора, проверьте `bin\winws.exe`, попробуйте «Меню service.bat» |
+| После обновления не работает zapret | Убедитесь, что GUI переключился на новую папку, при необходимости переустановите службу |
+| Тест стратегий не запускается | Удалите службу и остановите `winws.exe` — тест не работает одновременно со службой |
+| Служба и ручной запуск конфликтуют | Это нормально: одновременно должен работать только один экземпляр zapret |
+
+## Разработка
+
+```
+ZapretControl.ps1    основной скрипт: окно, вкладки, обработчики
+ZapretCommon.ps1     общие функции: стратегии, служба, IPSet, GitHub
+ZapretControl.bat    запуск с самозапросом UAC
+docs\                скриншоты
+```
+
+Файлы `.ps1` должны быть в **UTF-8 с BOM** — иначе PowerShell 5.1 прочитает русский текст как ANSI.
+
+Проверка синтаксиса и обязательных файлов выполняется в CI (`.github/workflows/ci.yml`) на каждый push и pull request.
 
 ## Благодарности
 
-- **Flowseal** — пакет zapret-discord-youtube и скрипты управления.
-- **Bugulmek** — графический интерфейс (этот форк).
+- **[Flowseal](https://github.com/Flowseal/zapret-discord-youtube)** — пакет zapret-discord-youtube и скрипты управления. Проект собрал более 36 000 звёзд на GitHub.
+- **Bugulmek** — графический интерфейс и автообновление.
 
 Проект не связан с разработчиками zapret и Discord. Используйте на свой риск.
+
+## Лицензия
+
+[MIT](LICENSE) © 2026 Bugulmek
+
+<p align="center">
+  Если программа оказалась полезной — поставьте ⭐ репозиторию.
+</p>

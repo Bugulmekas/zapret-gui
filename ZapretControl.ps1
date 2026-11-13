@@ -8,7 +8,7 @@
     Запускать через ZapretControl.bat (сам запросит права администратора).
 #>
 
-param([switch]$SelfTest, [switch]$Preview)
+param([switch]$SelfTest, [switch]$Preview, [int]$PreviewSeconds = 2)
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
@@ -680,8 +680,16 @@ function Update-AllStatus {
     # Права
     if (Test-IsAdmin) {
         Set-StatusValue 'Admin' 'администратор' $script:ClrGreen
+        if ($script:AdminBadge) {
+            $script:AdminBadge.Text = '● администратор'
+            $script:AdminBadge.ForeColor = $script:ClrGreen
+        }
     } else {
         Set-StatusValue 'Admin' 'нет прав' $script:ClrRed
+        if ($script:AdminBadge) {
+            $script:AdminBadge.Text = '● нет прав'
+            $script:AdminBadge.ForeColor = $script:ClrRed
+        }
     }
 
     # IPSet
@@ -1742,14 +1750,20 @@ $headerTitle = New-UiLabel -Text 'ZAPRET CONTROL' -X 14 -Y 6 -Width 340 -Height 
 $headerSubtitle = New-UiLabel -Text 'Управление zapret-discord-youtube · тест стратегий · автообновление с GitHub · форк Bugulmek' -X 16 -Y 34 -Width 760 -Height 18 -Font $script:FontSmall -Color $script:ClrMuted
 
 $adminBadge = New-Object Windows.Forms.Label
-$adminBadge.Text = '● администратор'
+if (Test-IsAdmin) {
+    $adminBadge.Text = '● администратор'
+    $adminBadge.ForeColor = $script:ClrGreen
+} else {
+    $adminBadge.Text = '● нет прав'
+    $adminBadge.ForeColor = $script:ClrRed
+}
 $adminBadge.AutoSize = $false
 $adminBadge.Width = 220
 $adminBadge.Dock = 'Right'
 $adminBadge.TextAlign = 'MiddleRight'
 $adminBadge.Font = $script:FontUiBold
-$adminBadge.ForeColor = $script:ClrGreen
 $adminBadge.Padding = New-Object Windows.Forms.Padding(0, 0, 14, 0)
+$script:AdminBadge = $adminBadge
 
 $header.Controls.Add($adminBadge)
 $header.Controls.Add($headerTitle)
@@ -2628,7 +2642,7 @@ $script:Form.Add_FormClosing({
 
 if ($Preview) {
     $script:PreviewTimer = New-Object Windows.Forms.Timer
-    $script:PreviewTimer.Interval = 1500
+    $script:PreviewTimer.Interval = [Math]::Max(500, $PreviewSeconds * 1000)
     $script:PreviewTimer.Add_Tick({
         $script:PreviewTimer.Stop()
         $script:Form.Close()

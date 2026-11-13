@@ -1,0 +1,75 @@
+name: Сообщение об ошибке
+description: Что-то не работает — расскажите, что именно
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Спасибо, что помогаете сделать проект лучше!
+        Перед отправкой проверьте, нет ли уже похожего issue.
+
+  - type: input
+    id: gui-version
+    attributes:
+      label: Версия Zapret Control
+      description: Указана в правом нижнем углу окна или на странице релиза
+      placeholder: "1.0.0"
+    validations:
+      required: true
+
+  - type: input
+    id: zapret-version
+    attributes:
+      label: Версия пакета zapret
+      description: Например, 1.10.4 — видна в блоке «Состояние» и в имени папки
+      placeholder: "1.10.4"
+    validations:
+      required: true
+
+  - type: input
+    id: windows
+    attributes:
+      label: Версия Windows
+      placeholder: "Windows 11 Pro 23H2"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Шаги воспроизведения
+      description: Что вы нажали и в каком порядке
+      placeholder: |
+        1. Открыл вкладку «Служба»
+        2. Нажал «Установить службу»
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Ожидаемое и фактическое поведение
+      placeholder: Ожидал..., но получил...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Журнал и скриншоты
+      description: Скопируйте журнал из нижней части окна (кнопка «Сохранить лог…») или приложите скриншот
+      render: text
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Проверка
+      options:
+        - label: Программа запущена от имени администратора
+          required: true
+        - label: Я проверил, что похожего issue ещё нет
+          required: true

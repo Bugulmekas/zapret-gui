@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Проблемы самого пакета zapret
+    url: https://github.com/Flowseal/zapret-discord-youtube/issues
+    about: Ошибки стратегий, winws.exe и списков — это upstream Flowseal, а не GUI
+  - name: Обсуждения Flowseal
+    url: https://github.com/Flowseal/zapret-discord-youtube/discussions
+    about: Вопросы по настройке обхода и выбору стратегии

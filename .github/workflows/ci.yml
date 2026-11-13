@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Проверка скриптов
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Синтаксис PowerShell
+        shell: pwsh
+        run: |
+          $failed = $false
+          Get-ChildItem -Path . -Filter '*.ps1' -File | ForEach-Object {
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$null, [ref]$errors)
+            if ($errors.Count -gt 0) {
+              $failed = $true
+              $errors | ForEach-Object {
+                Write-Host "::error file=$($_.Extent.File),line=$($_.Extent.StartLineNumber)::$($_.Message)"
+              }
+            } else {
+              Write-Host "OK: $($_.Name)"
+            }
+          }
+          if ($failed) { exit 1 }
+
+      - name: Обязательные файлы
+        shell: pwsh
+        run: |
+          $required = @(
+            'ZapretControl.ps1',
+            'ZapretCommon.ps1',
+            'ZapretControl.bat',
+            'README.md',
+            'LICENSE',
+            'CHANGELOG.md'
+          )
+          foreach ($file in $required) {
+            if (-not (Test-Path -LiteralPath $file)) {
+              Write-Host "::error::$file не найден"
+              exit 1
+            }
+          }
+          Write-Host 'Все обязательные файлы на месте.'
+
+      - name: Кодировка UTF-8 с BOM
+        shell: pwsh
+        run: |
+          $failed = $false
+          Get-ChildItem -Path . -Filter '*.ps1' -File | ForEach-Object {
+            $bytes = [System.IO.File]::ReadAllBytes($_.FullName)
+            $hasBom = $bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF
+            if (-not $hasBom) {
+              $failed = $true
+              Write-Host "::error file=$($_.Name)::PowerShell-скрипт должен быть в UTF-8 с BOM"
+            } else {
+              Write-Host "BOM OK: $($_.Name)"
+            }
+          }
+          if ($failed) { exit 1 }

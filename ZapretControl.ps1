@@ -5,14 +5,18 @@
     Пакет zapret и источник обновлений: Flowseal
     https://github.com/Flowseal/zapret-discord-youtube
 
+    Интерфейс: WPF + XAML.
     Запускать через ZapretControl.bat (сам запросит права администратора).
 #>
 
 param([switch]$SelfTest, [switch]$Preview, [int]$PreviewSeconds = 2)
 
+Add-Type -AssemblyName PresentationFramework
+Add-Type -AssemblyName PresentationCore
+Add-Type -AssemblyName WindowsBase
+Add-Type -AssemblyName System.Xaml
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
-[Windows.Forms.Application]::EnableVisualStyles()
 
 $script:AppDir = $PSScriptRoot
 . (Join-Path $PSScriptRoot 'ZapretCommon.ps1')
@@ -82,7 +86,7 @@ if (-not $Preview -and -not (Test-IsAdmin)) {
             -ArgumentList ('-NoProfile -ExecutionPolicy Bypass -Sta -WindowStyle Hidden -File "' + $PSCommandPath + '"') `
             -Verb RunAs -ErrorAction Stop | Out-Null
     } catch {
-        [void][Windows.Forms.MessageBox]::Show(
+        [void][Windows.MessageBox]::Show(
             "Для работы Zapret Control нужны права администратора.`n`nЗапуск отменён.",
             'Zapret Control', 'OK', 'Warning')
     }
@@ -109,7 +113,7 @@ if (-not $script:ZapretRoot) {
 }
 
 if (-not $script:ZapretRoot) {
-    [void][Windows.Forms.MessageBox]::Show(
+    [void][Windows.MessageBox]::Show(
         "Не удалось найти папку zapret.`n`nПоложите папку GUI рядом с папкой zapret-discord-youtube-* `nили запустите программу и укажите папку вручную.",
         'Zapret Control', 'OK', 'Error')
     exit 1
@@ -122,120 +126,1078 @@ if ($script:Config.ZapretRoot -ne $script:ZapretRoot) {
 }
 
 # ---------------------------------------------------------------------------
-#  Внешний вид
+#  Состояние интерфейса
 # ---------------------------------------------------------------------------
-$script:Form           = $null
-$script:StatusLabels   = @{}
-$script:LstStrategies  = $null
-$script:RtbLog         = $null
-$script:StatusLabel    = $null
-$script:LatestRelease  = $null
+$script:Window          = $null
+$script:Form            = $null
+$script:StatusLabels    = @{}
+$script:LstStrategies   = $null
+$script:RtbLog          = $null
+$script:StatusLabel     = $null
+$script:AdminPill       = $null
+$script:AdminPillText   = $null
+$script:AdminPillDot    = $null
+$script:LatestRelease   = $null
 $script:UpdateAvailable = $false
-$script:SyncingUi      = $false
-$script:SyncInputs     = $false
-$script:StrategyFiles  = @()
+$script:SyncingUi       = $false
+$script:SyncInputs      = $false
+$script:StrategyFiles   = @()
 
-$script:FontUi      = New-Object Drawing.Font('Segoe UI', 9)
-$script:FontUiBold  = New-Object Drawing.Font('Segoe UI', 9, [Drawing.FontStyle]::Bold)
-$script:FontSmall   = New-Object Drawing.Font('Segoe UI', 8)
-$script:FontTitle   = New-Object Drawing.Font('Segoe UI', 15, [Drawing.FontStyle]::Bold)
-$script:FontHeader  = New-Object Drawing.Font('Segoe UI', 10, [Drawing.FontStyle]::Bold)
-$script:FontMono    = New-Object Drawing.Font('Consolas', 9)
+$script:UiFont   = New-Object Windows.Media.FontFamily('Segoe UI Variable Text, Segoe UI')
+$script:UiFontDisplay = New-Object Windows.Media.FontFamily('Segoe UI Variable Display, Segoe UI Variable Text, Segoe UI')
+$script:UiFontMono = New-Object Windows.Media.FontFamily('Cascadia Mono, Consolas, Courier New')
 
-$script:ClrBg       = [Drawing.ColorTranslator]::FromHtml('#F3F5F9')
-$script:ClrCard     = [Drawing.Color]::White
-$script:ClrText     = [Drawing.ColorTranslator]::FromHtml('#1F2937')
-$script:ClrMuted    = [Drawing.ColorTranslator]::FromHtml('#6B7280')
-$script:ClrGreen    = [Drawing.ColorTranslator]::FromHtml('#15803D')
-$script:ClrRed      = [Drawing.ColorTranslator]::FromHtml('#B91C1C')
-$script:ClrOrange   = [Drawing.ColorTranslator]::FromHtml('#B45309')
-$script:ClrAccent   = [Drawing.ColorTranslator]::FromHtml('#2563EB')
-$script:ClrAccentDk = [Drawing.ColorTranslator]::FromHtml('#1D4ED8')
-$script:ClrLogBg    = [Drawing.ColorTranslator]::FromHtml('#0F172A')
-$script:ClrLogText  = [Drawing.ColorTranslator]::FromHtml('#E5E7EB')
-$script:ClrBorder   = [Drawing.ColorTranslator]::FromHtml('#D1D5DB')
-
-function New-StyledButton {
-    param(
-        [string]$Text,
-        [int]$Width = 150,
-        [int]$Height = 34,
-        [string]$Kind = 'secondary'
-    )
-
-    $button = New-Object Windows.Forms.Button
-    $button.Text = $Text
-    $button.Size = New-Object Drawing.Size($Width, $Height)
-    $button.FlatStyle = 'Flat'
-    $button.Font = $script:FontUiBold
-    $button.Cursor = [Windows.Forms.Cursors]::Hand
-    $button.UseVisualStyleBackColor = $false
-
-    switch ($Kind) {
-        'primary' {
-            $button.BackColor = $script:ClrAccent
-            $button.ForeColor = [Drawing.Color]::White
-            $button.FlatAppearance.BorderSize = 0
-            $button.FlatAppearance.MouseOverBackColor = $script:ClrAccentDk
-        }
-        'danger' {
-            $button.BackColor = [Drawing.ColorTranslator]::FromHtml('#DC2626')
-            $button.ForeColor = [Drawing.Color]::White
-            $button.FlatAppearance.BorderSize = 0
-            $button.FlatAppearance.MouseOverBackColor = [Drawing.ColorTranslator]::FromHtml('#B91C1C')
-        }
-        'success' {
-            $button.BackColor = [Drawing.ColorTranslator]::FromHtml('#16A34A')
-            $button.ForeColor = [Drawing.Color]::White
-            $button.FlatAppearance.BorderSize = 0
-            $button.FlatAppearance.MouseOverBackColor = [Drawing.ColorTranslator]::FromHtml('#15803D')
-        }
-        default {
-            $button.BackColor = $script:ClrCard
-            $button.ForeColor = $script:ClrText
-            $button.FlatAppearance.BorderSize = 1
-            $button.FlatAppearance.BorderColor = $script:ClrBorder
-            $button.FlatAppearance.MouseOverBackColor = [Drawing.ColorTranslator]::FromHtml('#E5E7EB')
-        }
+$script:BrushCache = @{}
+function Get-Brush {
+    param([string]$Hex)
+    if (-not $script:BrushCache.ContainsKey($Hex)) {
+        $converter = New-Object Windows.Media.BrushConverter
+        $script:BrushCache[$Hex] = $converter.ConvertFromString($Hex)
     }
-    return $button
+    return $script:BrushCache[$Hex]
 }
 
-function New-UiLabel {
-    param(
-        [string]$Text,
-        [int]$X = 0,
-        [int]$Y = 0,
-        [int]$Width = 200,
-        [int]$Height = 20,
-        [object]$Font = $null,
-        [object]$Color = $null
-    )
-    $label = New-Object Windows.Forms.Label
-    $label.Text = $Text
-    $label.Location = New-Object Drawing.Point($X, $Y)
-    $label.Size = New-Object Drawing.Size($Width, $Height)
-    if ($Font) { $label.Font = $Font } else { $label.Font = $script:FontUi }
-    if ($Color) { $label.ForeColor = $Color } else { $label.ForeColor = $script:ClrText }
-    $label.BackColor = [Drawing.Color]::Transparent
-    return $label
+$script:BrCanvas   = Get-Brush '#F5F5F7'
+$script:BrSurface  = Get-Brush '#FFFFFF'
+$script:BrInk      = Get-Brush '#1D1D1F'
+$script:BrBody     = Get-Brush '#3A3A3C'
+$script:BrMuted    = Get-Brush '#6E6E73'
+$script:BrGreen    = Get-Brush '#248A3D'
+$script:BrRed      = Get-Brush '#D70015'
+$script:BrOrange   = Get-Brush '#B25000'
+$script:BrAccent   = Get-Brush '#0071E3'
+$script:BrLogText  = Get-Brush '#3A3A3C'
+$script:BrLogGray  = Get-Brush '#8E8E93'
+$script:BrPillOk   = Get-Brush '#E8F6EC'
+$script:BrPillBad  = Get-Brush '#FDECEB'
+$script:BrPillOkDot = Get-Brush '#34C759'
+$script:BrPillBadDot = Get-Brush '#FF3B30'
+
+$windowXaml = @'
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="Zapret Control — управление zapret-discord-youtube (форк Bugulmek)"
+        Width="1280" Height="940" MinWidth="1080" MinHeight="760"
+        WindowStartupLocation="CenterScreen" Background="#F5F5F7"
+        FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="14"
+        TextOptions.TextFormattingMode="Display" UseLayoutRounding="True"
+        SnapsToDevicePixels="True" WindowStyle="None" ResizeMode="CanResize">
+  <shell:WindowChrome.WindowChrome>
+    <shell:WindowChrome CaptionHeight="0" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="0" UseAeroCaptionButtons="False"/>
+  </shell:WindowChrome.WindowChrome>
+
+  <Window.Resources>
+    <SolidColorBrush x:Key="Canvas" Color="#F5F5F7"/>
+    <SolidColorBrush x:Key="Surface" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="Ink" Color="#1D1D1F"/>
+    <SolidColorBrush x:Key="Body" Color="#3A3A3C"/>
+    <SolidColorBrush x:Key="Muted" Color="#6E6E73"/>
+    <SolidColorBrush x:Key="Hairline" Color="#E5E5EA"/>
+    <SolidColorBrush x:Key="Field" Color="#F2F2F7"/>
+    <SolidColorBrush x:Key="FieldHover" Color="#E9E9EE"/>
+    <SolidColorBrush x:Key="Accent" Color="#0071E3"/>
+    <SolidColorBrush x:Key="Danger" Color="#D70015"/>
+
+    <Style x:Key="ZcFocus">
+      <Setter Property="Control.Template">
+        <Setter.Value>
+          <ControlTemplate>
+            <Border Margin="2" CornerRadius="10" BorderBrush="#7FB6F0" BorderThickness="2"/>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="ZcCard" TargetType="Border">
+      <Setter Property="Background" Value="{StaticResource Surface}"/>
+      <Setter Property="BorderBrush" Value="{StaticResource Hairline}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="14"/>
+      <Setter Property="Padding" Value="20"/>
+      <Setter Property="Margin" Value="0,0,0,14"/>
+    </Style>
+
+    <Style x:Key="ZcCardTitle" TargetType="TextBlock">
+      <Setter Property="FontSize" Value="15"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+    </Style>
+
+    <Style x:Key="ZcHint" TargetType="TextBlock">
+      <Setter Property="FontSize" Value="12.5"/>
+      <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+      <Setter Property="TextWrapping" Value="Wrap"/>
+      <Setter Property="LineHeight" Value="18"/>
+    </Style>
+
+    <Style x:Key="ZcBody" TargetType="TextBlock">
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="Foreground" Value="{StaticResource Body}"/>
+      <Setter Property="TextWrapping" Value="Wrap"/>
+      <Setter Property="LineHeight" Value="20"/>
+    </Style>
+
+    <Style x:Key="ZcFieldLabel" TargetType="TextBlock">
+      <Setter Property="FontSize" Value="11.5"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+      <Setter Property="Margin" Value="1,0,0,6"/>
+    </Style>
+
+    <Style x:Key="ZcPageTitle" TargetType="TextBlock">
+      <Setter Property="FontSize" Value="21"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+    </Style>
+
+    <Style x:Key="ZcButtonBase" TargetType="Button">
+      <Setter Property="Height" Value="38"/>
+      <Setter Property="Padding" Value="16,0"/>
+      <Setter Property="FontSize" Value="13.5"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="FocusVisualStyle" Value="{StaticResource ZcFocus}"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="9"
+                    Padding="{TemplateBinding Padding}">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                TextElement.Foreground="{TemplateBinding Foreground}"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Bd" Property="Opacity" Value="0.86"/>
+              </Trigger>
+              <Trigger Property="IsPressed" Value="True">
+                <Setter TargetName="Bd" Property="Opacity" Value="0.7"/>
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="Bd" Property="Opacity" Value="0.4"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="ZcPrimary" TargetType="Button" BasedOn="{StaticResource ZcButtonBase}">
+      <Setter Property="Background" Value="{StaticResource Accent}"/>
+      <Setter Property="Foreground" Value="White"/>
+    </Style>
+
+    <Style x:Key="ZcSecondary" TargetType="Button" BasedOn="{StaticResource ZcButtonBase}">
+      <Setter Property="Background" Value="{StaticResource Field}"/>
+      <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+    </Style>
+
+    <Style x:Key="ZcDangerText" TargetType="Button" BasedOn="{StaticResource ZcButtonBase}">
+      <Setter Property="Background" Value="#FDECEB"/>
+      <Setter Property="Foreground" Value="{StaticResource Danger}"/>
+    </Style>
+
+    <Style x:Key="ZcGhost" TargetType="Button" BasedOn="{StaticResource ZcButtonBase}">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Foreground" Value="{StaticResource Accent}"/>
+      <Setter Property="FontWeight" Value="Normal"/>
+      <Setter Property="Height" Value="30"/>
+      <Setter Property="Padding" Value="8,0"/>
+      <Setter Property="FontSize" Value="12.5"/>
+    </Style>
+
+    <Style x:Key="ZcPrimarySmall" TargetType="Button" BasedOn="{StaticResource ZcPrimary}">
+      <Setter Property="Height" Value="34"/>
+      <Setter Property="FontSize" Value="12.5"/>
+      <Setter Property="Padding" Value="10,0"/>
+    </Style>
+
+    <Style x:Key="ZcSecondarySmall" TargetType="Button" BasedOn="{StaticResource ZcSecondary}">
+      <Setter Property="Height" Value="34"/>
+      <Setter Property="FontSize" Value="12.5"/>
+      <Setter Property="Padding" Value="10,0"/>
+    </Style>
+
+    <Style x:Key="ZcSmall" TargetType="Button" BasedOn="{StaticResource ZcSecondary}">
+      <Setter Property="Height" Value="30"/>
+      <Setter Property="FontSize" Value="12.5"/>
+      <Setter Property="FontWeight" Value="Normal"/>
+      <Setter Property="Padding" Value="12,0"/>
+    </Style>
+
+    <Style x:Key="ZcWindowButton" TargetType="Button">
+      <Setter Property="Width" Value="40"/>
+      <Setter Property="Height" Value="30"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="7">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                TextElement.Foreground="{TemplateBinding Foreground}"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Bd" Property="Background" Value="{StaticResource FieldHover}"/>
+              </Trigger>
+              <Trigger Property="IsPressed" Value="True">
+                <Setter TargetName="Bd" Property="Opacity" Value="0.65"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="ZcNav" TargetType="RadioButton">
+      <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="FocusVisualStyle" Value="{StaticResource ZcFocus}"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="RadioButton">
+            <Border x:Name="Bd" CornerRadius="8" Background="Transparent" Padding="14,7">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                TextElement.Foreground="{TemplateBinding Foreground}"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Bd" Property="Background" Value="{StaticResource FieldHover}"/>
+              </Trigger>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="Bd" Property="Background" Value="{StaticResource Surface}"/>
+                <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter TargetName="Bd" Property="Effect">
+                  <Setter.Value>
+                    <DropShadowEffect BlurRadius="7" ShadowDepth="1" Direction="270"
+                                      Opacity="0.12" Color="#000000"/>
+                  </Setter.Value>
+                </Setter>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="ZcCheck" TargetType="CheckBox">
+      <Setter Property="Foreground" Value="{StaticResource Body}"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="FocusVisualStyle" Value="{StaticResource ZcFocus}"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="CheckBox">
+            <StackPanel Orientation="Horizontal" Background="Transparent">
+              <Border x:Name="Box" Width="18" Height="18" CornerRadius="5"
+                      Background="White" BorderBrush="#C7C7CC" BorderThickness="1.5"
+                      VerticalAlignment="Center">
+                <Grid>
+                  <Path x:Name="Check" Data="M 3.5 8.5 L 7 12 L 14 4.5"
+                        Stroke="White" StrokeThickness="2" StrokeStartLineCap="Round"
+                        StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                        Visibility="Collapsed" HorizontalAlignment="Center"
+                        VerticalAlignment="Center"/>
+                </Grid>
+              </Border>
+              <ContentPresenter Margin="9,0,0,0" VerticalAlignment="Center"
+                                TextElement.Foreground="{TemplateBinding Foreground}"/>
+            </StackPanel>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Box" Property="BorderBrush" Value="#8E8E93"/>
+              </Trigger>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="Box" Property="Background" Value="{StaticResource Accent}"/>
+                <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource Accent}"/>
+                <Setter TargetName="Check" Property="Visibility" Value="Visible"/>
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="Box" Property="Opacity" Value="0.45"/>
+                <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="ZcListItem" TargetType="ListBoxItem">
+      <Setter Property="Padding" Value="12,9"/>
+      <Setter Property="Margin" Value="0,1"/>
+      <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ListBoxItem">
+            <Border x:Name="Bd" Background="Transparent" CornerRadius="8"
+                    Padding="{TemplateBinding Padding}">
+              <ContentPresenter VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Bd" Property="Background" Value="#F7F7F9"/>
+              </Trigger>
+              <Trigger Property="IsSelected" Value="True">
+                <Setter TargetName="Bd" Property="Background" Value="{StaticResource Field}"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="ZcList" TargetType="ListBox">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+      <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
+      <Setter Property="ItemContainerStyle" Value="{StaticResource ZcListItem}"/>
+    </Style>
+
+    <Style x:Key="ZcTextInput" TargetType="TextBox">
+      <Setter Property="Height" Value="36"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="Background" Value="{StaticResource Field}"/>
+      <Setter Property="BorderBrush" Value="{StaticResource Hairline}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="CaretBrush" Value="{StaticResource Ink}"/>
+      <Setter Property="SelectionBrush" Value="#B3D7F7"/>
+      <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="TextBox">
+            <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="9">
+              <ScrollViewer x:Name="PART_ContentHost" Margin="12,0,10,0"
+                            VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                <Setter TargetName="Bd" Property="BorderBrush" Value="#9CC7F2"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="ZcTextArea" TargetType="TextBox" BasedOn="{StaticResource ZcTextInput}">
+      <Setter Property="Height" Value="Auto"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="AcceptsReturn" Value="True"/>
+      <Setter Property="TextWrapping" Value="Wrap"/>
+      <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="TextBox">
+            <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="9">
+              <ScrollViewer x:Name="PART_ContentHost" Margin="12,8,8,8"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                <Setter TargetName="Bd" Property="BorderBrush" Value="#9CC7F2"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="ZcComboItem" TargetType="ComboBoxItem">
+      <Setter Property="Padding" Value="10,7"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ComboBoxItem">
+            <Border x:Name="Bd" Background="Transparent" CornerRadius="7"
+                    Padding="{TemplateBinding Padding}">
+              <ContentPresenter/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsHighlighted" Value="True">
+                <Setter TargetName="Bd" Property="Background" Value="{StaticResource Field}"/>
+              </Trigger>
+              <Trigger Property="IsSelected" Value="True">
+                <Setter TargetName="Bd" Property="Background" Value="{StaticResource Field}"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="ZcThumb" TargetType="Thumb">
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Thumb">
+            <Border Background="#C7C7CC" CornerRadius="4" Margin="2"/>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style TargetType="ScrollBar">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Width" Value="10"/>
+      <Setter Property="MinWidth" Value="10"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ScrollBar">
+            <Grid Background="Transparent">
+              <Track x:Name="PART_Track" IsDirectionReversed="True">
+                <Track.Thumb>
+                  <Thumb Style="{StaticResource ZcThumb}"/>
+                </Track.Thumb>
+                <Track.DecreaseRepeatButton>
+                  <RepeatButton x:Name="PageUp" Command="{x:Static ScrollBar.PageUpCommand}"
+                                Opacity="0" Focusable="False"/>
+                </Track.DecreaseRepeatButton>
+                <Track.IncreaseRepeatButton>
+                  <RepeatButton x:Name="PageDown" Command="{x:Static ScrollBar.PageDownCommand}"
+                                Opacity="0" Focusable="False"/>
+                </Track.IncreaseRepeatButton>
+              </Track>
+            </Grid>
+            <ControlTemplate.Triggers>
+              <Trigger Property="Orientation" Value="Horizontal">
+                <Setter TargetName="PART_Track" Property="Orientation" Value="Horizontal"/>
+                <Setter TargetName="PART_Track" Property="IsDirectionReversed" Value="False"/>
+                <Setter TargetName="PageUp" Property="Command" Value="{x:Static ScrollBar.PageLeftCommand}"/>
+                <Setter TargetName="PageDown" Property="Command" Value="{x:Static ScrollBar.PageRightCommand}"/>
+                <Setter Property="Width" Value="Auto"/>
+                <Setter Property="MinWidth" Value="0"/>
+                <Setter Property="Height" Value="10"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="ZcCombo" TargetType="ComboBox">
+      <Setter Property="Height" Value="36"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+      <Setter Property="Background" Value="{StaticResource Field}"/>
+      <Setter Property="BorderBrush" Value="{StaticResource Hairline}"/>
+      <Setter Property="ItemContainerStyle" Value="{StaticResource ZcComboItem}"/>
+      <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ComboBox">
+            <Grid>
+              <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                      BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1"
+                      CornerRadius="9"/>
+              <ContentPresenter Content="{TemplateBinding SelectionBoxItem}"
+                                Margin="12,0,32,0" VerticalAlignment="Center"
+                                IsHitTestVisible="False"/>
+              <Path Data="M 0 0 L 4 4 L 8 0" Stroke="{StaticResource Muted}"
+                    StrokeThickness="1.6" HorizontalAlignment="Right"
+                    VerticalAlignment="Center" Margin="0,0,13,0"
+                    IsHitTestVisible="False"/>
+              <ToggleButton Focusable="False" ClickMode="Press"
+                            Background="Transparent" BorderThickness="0"
+                            IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+                <ToggleButton.Template>
+                  <ControlTemplate TargetType="ToggleButton">
+                    <Border Background="Transparent"/>
+                  </ControlTemplate>
+                </ToggleButton.Template>
+              </ToggleButton>
+              <Popup IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom"
+                     AllowsTransparency="True" PopupAnimation="Fade" Focusable="False">
+                <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Hairline}"
+                        BorderThickness="1" CornerRadius="10" Margin="0,4,0,0"
+                        MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
+                        MaxHeight="280">
+                  <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ItemsPresenter Margin="4"/>
+                  </ScrollViewer>
+                </Border>
+              </Popup>
+            </Grid>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                <Setter TargetName="Bd" Property="BorderBrush" Value="#9CC7F2"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+  </Window.Resources>
+
+  <Border BorderBrush="#D6D6DB" BorderThickness="1" Background="{StaticResource Canvas}">
+    <Grid>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="92"/>
+        <RowDefinition Height="132"/>
+        <RowDefinition Height="*"/>
+        <RowDefinition Height="188"/>
+        <RowDefinition Height="30"/>
+      </Grid.RowDefinitions>
+
+      <!-- Шапка -->
+      <Grid x:Name="HeaderBar" Grid.Row="0" Background="{StaticResource Canvas}">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*"/>
+          <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+        <StackPanel Grid.Column="0" Margin="30,18,0,0" VerticalAlignment="Center">
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Text="Zapret Control" FontSize="26" FontWeight="SemiBold"
+                       Foreground="{StaticResource Ink}" VerticalAlignment="Center"/>
+            <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Hairline}"
+                    BorderThickness="1" CornerRadius="999" Padding="9,2" Margin="12,5,0,0"
+                    VerticalAlignment="Center">
+              <TextBlock x:Name="VersionChipText" Text="1.1.0" FontSize="11.5"
+                         FontWeight="SemiBold" Foreground="{StaticResource Muted}"/>
+            </Border>
+          </StackPanel>
+          <TextBlock Text="Управление zapret-discord-youtube · тест стратегий · автообновление с GitHub"
+                     FontSize="12.5" Foreground="{StaticResource Muted}" Margin="1,5,0,0"/>
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,14,14,0">
+          <Border x:Name="AdminPill" Background="#E8F6EC" CornerRadius="999"
+                  Padding="12,6" Margin="0,3,14,0" VerticalAlignment="Center">
+            <StackPanel Orientation="Horizontal">
+              <Ellipse x:Name="AdminPillDot" Width="7" Height="7" Fill="#34C759"
+                       VerticalAlignment="Center"/>
+              <TextBlock x:Name="AdminPillText" Text="администратор" FontSize="12"
+                         FontWeight="SemiBold" Foreground="{StaticResource Ink}"
+                         Margin="7,0,0,0" VerticalAlignment="Center"/>
+            </StackPanel>
+          </Border>
+          <Button x:Name="BtnMinimize" Content="–" Style="{StaticResource ZcWindowButton}" ToolTip="Свернуть"/>
+          <Button x:Name="BtnClose" Content="✕" Style="{StaticResource ZcWindowButton}" ToolTip="Закрыть"/>
+        </StackPanel>
+      </Grid>
+
+      <!-- Состояние -->
+      <Border Grid.Row="1" Margin="30,6,30,0" Style="{StaticResource ZcCard}" Padding="0">
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="62"/>
+            <RowDefinition Height="1"/>
+            <RowDefinition Height="62"/>
+          </Grid.RowDefinitions>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*"/>
+          </Grid.ColumnDefinitions>
+
+          <Border Grid.Row="0" Grid.Column="0" BorderBrush="{StaticResource Hairline}" BorderThickness="0,0,1,0" Padding="22,0">
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="Служба zapret" Style="{StaticResource ZcFieldLabel}" Margin="0,0,0,3"/>
+              <TextBlock x:Name="StatusService" Text="—" FontSize="15" FontWeight="SemiBold"
+                         Foreground="{StaticResource Ink}" TextTrimming="CharacterEllipsis"/>
+            </StackPanel>
+          </Border>
+          <Border Grid.Row="0" Grid.Column="1" BorderBrush="{StaticResource Hairline}" BorderThickness="0,0,1,0" Padding="22,0">
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="winws.exe" Style="{StaticResource ZcFieldLabel}" Margin="0,0,0,3"/>
+              <TextBlock x:Name="StatusWinws" Text="—" FontSize="15" FontWeight="SemiBold"
+                         Foreground="{StaticResource Ink}" TextTrimming="CharacterEllipsis"/>
+            </StackPanel>
+          </Border>
+          <Border Grid.Row="0" Grid.Column="2" BorderBrush="{StaticResource Hairline}" BorderThickness="0,0,1,0" Padding="22,0">
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="Стратегия службы" Style="{StaticResource ZcFieldLabel}" Margin="0,0,0,3"/>
+              <TextBlock x:Name="StatusStrategy" Text="—" FontSize="15" FontWeight="SemiBold"
+                         Foreground="{StaticResource Ink}" TextTrimming="CharacterEllipsis"/>
+            </StackPanel>
+          </Border>
+          <Border Grid.Row="0" Grid.Column="3" Padding="22,0">
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="IPSet" Style="{StaticResource ZcFieldLabel}" Margin="0,0,0,3"/>
+              <TextBlock x:Name="StatusIpset" Text="—" FontSize="15" FontWeight="SemiBold"
+                         Foreground="{StaticResource Ink}" TextTrimming="CharacterEllipsis"/>
+            </StackPanel>
+          </Border>
+
+          <Border Grid.Row="1" Grid.ColumnSpan="4" Background="{StaticResource Hairline}" Margin="22,0,22,0"/>
+
+          <Border Grid.Row="2" Grid.Column="0" BorderBrush="{StaticResource Hairline}" BorderThickness="0,0,1,0" Padding="22,0">
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="Игровой фильтр" Style="{StaticResource ZcFieldLabel}" Margin="0,0,0,3"/>
+              <TextBlock x:Name="StatusGame" Text="—" FontSize="15" FontWeight="SemiBold"
+                         Foreground="{StaticResource Ink}" TextTrimming="CharacterEllipsis"/>
+            </StackPanel>
+          </Border>
+          <Border Grid.Row="2" Grid.Column="1" BorderBrush="{StaticResource Hairline}" BorderThickness="0,0,1,0" Padding="22,0">
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="Обновление .bat" Style="{StaticResource ZcFieldLabel}" Margin="0,0,0,3"/>
+              <TextBlock x:Name="StatusUpdates" Text="—" FontSize="15" FontWeight="SemiBold"
+                         Foreground="{StaticResource Ink}" TextTrimming="CharacterEllipsis"/>
+            </StackPanel>
+          </Border>
+          <Border Grid.Row="2" Grid.Column="2" BorderBrush="{StaticResource Hairline}" BorderThickness="0,0,1,0" Padding="22,0">
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="Версия пакета" Style="{StaticResource ZcFieldLabel}" Margin="0,0,0,3"/>
+              <TextBlock x:Name="StatusVersion" Text="—" FontSize="15" FontWeight="SemiBold"
+                         Foreground="{StaticResource Ink}" TextTrimming="CharacterEllipsis"/>
+            </StackPanel>
+          </Border>
+          <Border Grid.Row="2" Grid.Column="3" Padding="22,0">
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="Права" Style="{StaticResource ZcFieldLabel}" Margin="0,0,0,3"/>
+              <TextBlock x:Name="StatusAdmin" Text="—" FontSize="15" FontWeight="SemiBold"
+                         Foreground="{StaticResource Ink}" TextTrimming="CharacterEllipsis"/>
+            </StackPanel>
+          </Border>
+        </Grid>
+      </Border>
+
+      <!-- Тело -->
+      <Grid Grid.Row="2" Margin="30,16,30,0">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="330"/>
+          <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <Border Grid.Column="0" Style="{StaticResource ZcCard}" Padding="0" Margin="0,0,16,0">
+          <Grid>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="*"/>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <TextBlock Grid.Row="0" Text="Стратегии" Style="{StaticResource ZcCardTitle}" Margin="18,16,18,0"/>
+            <TextBlock Grid.Row="1" Text="Двойной клик — запуск" Style="{StaticResource ZcHint}" Margin="18,3,18,10"/>
+            <ListBox x:Name="LstStrategies" Grid.Row="2" Style="{StaticResource ZcList}" Margin="10,0,10,0"/>
+            <TextBlock x:Name="LblServiceUsing" Grid.Row="3" Text="Служба использует: —"
+                       Style="{StaticResource ZcHint}" Margin="19,8,19,10" TextTrimming="CharacterEllipsis"/>
+            <Grid Grid.Row="4" Margin="10,0,10,12">
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+              </Grid.RowDefinitions>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <Button x:Name="BtnStart" Grid.Row="0" Grid.Column="0" Content="Запустить"
+                      Style="{StaticResource ZcPrimarySmall}" Margin="0,0,5,8"/>
+              <Button x:Name="BtnStop" Grid.Row="0" Grid.Column="1" Content="Остановить"
+                      Style="{StaticResource ZcSecondarySmall}" Margin="5,0,0,8"/>
+              <Button x:Name="BtnInstall" Grid.Row="1" Grid.Column="0" Content="Установить службу"
+                      Style="{StaticResource ZcSecondarySmall}" Margin="0,0,5,0"/>
+              <Button x:Name="BtnRemove" Grid.Row="1" Grid.Column="1" Content="Удалить службу"
+                      Style="{StaticResource ZcSecondarySmall}" Margin="5,0,0,0"
+                      Foreground="{StaticResource Danger}"/>
+            </Grid>
+          </Grid>
+        </Border>
+
+        <Border Grid.Column="1" Style="{StaticResource ZcCard}" Padding="0">
+          <Grid>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="52"/>
+              <RowDefinition Height="1"/>
+              <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <Border Grid.Row="0" Margin="14,9,14,7" Background="{StaticResource Field}"
+                    CornerRadius="10" Padding="3" HorizontalAlignment="Left">
+              <StackPanel Orientation="Horizontal">
+                <RadioButton x:Name="NavService" Content="Служба" GroupName="Nav" IsChecked="True" Style="{StaticResource ZcNav}" Tag="0"/>
+                <RadioButton x:Name="NavSettings" Content="Настройки" GroupName="Nav" Style="{StaticResource ZcNav}" Tag="1"/>
+                <RadioButton x:Name="NavTools" Content="Инструменты" GroupName="Nav" Style="{StaticResource ZcNav}" Tag="2"/>
+                <RadioButton x:Name="NavTests" Content="Тест стратегий" GroupName="Nav" Style="{StaticResource ZcNav}" Tag="3"/>
+                <RadioButton x:Name="NavUpdate" Content="Обновление" GroupName="Nav" Style="{StaticResource ZcNav}" Tag="4"/>
+              </StackPanel>
+            </Border>
+            <Border Grid.Row="1" Background="{StaticResource Hairline}"/>
+            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+              <Grid Margin="22,18,22,20">
+
+                <!-- Раздел: Служба -->
+                <StackPanel x:Name="PageService">
+                  <TextBlock Text="Служба" Style="{StaticResource ZcPageTitle}"/>
+                  <TextBlock Text="Запуск стратегий, установка и удаление службы Windows."
+                             Style="{StaticResource ZcHint}" Margin="2,6,0,16"/>
+                  <Border Style="{StaticResource ZcCard}">
+                    <StackPanel>
+                      <TextBlock Text="Служба Windows «zapret»" Style="{StaticResource ZcCardTitle}"/>
+                      <TextBlock Text="Служба закрепляет выбранную стратегию в системе и запускает её при старте Windows — до входа в учётную запись."
+                                 Style="{StaticResource ZcHint}" Margin="0,6,0,16"/>
+                      <CheckBox x:Name="ChkAutostart" Content="Запускать службу автоматически при старте Windows"
+                                Style="{StaticResource ZcCheck}"/>
+                      <WrapPanel Margin="0,16,0,0">
+                        <Button x:Name="BtnRestartService" Content="Перезапустить" Width="172"
+                                Style="{StaticResource ZcSecondary}" Margin="0,0,10,10"/>
+                        <Button x:Name="BtnRemoveService" Content="Удалить службу" Width="172"
+                                Style="{StaticResource ZcSecondary}" Margin="0,0,10,10"
+                                Foreground="{StaticResource Danger}"/>
+                        <Button x:Name="BtnServiceBat" Content="Меню service.bat" Width="172"
+                                Style="{StaticResource ZcSecondary}" Margin="0,0,10,10"/>
+                        <Button x:Name="BtnOpenRoot" Content="Папка zapret" Width="152"
+                                Style="{StaticResource ZcSecondary}" Margin="0,0,0,10"/>
+                      </WrapPanel>
+                    </StackPanel>
+                  </Border>
+
+                  <Border Style="{StaticResource ZcCard}" Margin="0">
+                    <StackPanel>
+                      <TextBlock Text="Как это работает" Style="{StaticResource ZcCardTitle}"/>
+                      <TextBlock Style="{StaticResource ZcBody}" Margin="0,10,0,0"
+                                 Text="«Запустить» слева поднимает стратегию вручную: процесс winws.exe работает, пока вы его не остановите. «Установить службу» закрепляет ту же стратегию в системе и включает автозапуск."/>
+                      <TextBlock Style="{StaticResource ZcBody}" Margin="0,10,0,0"
+                                 Text="Если обход не включается, откройте «Инструменты» → «Диагностика». Она проверяет права, драйвер WinDivert, конфликтующие службы, системный прокси и файл hosts."/>
+                      <TextBlock Style="{StaticResource ZcBody}" Margin="0,10,0,0"
+                                 Text="Для ручного управления пакетом есть «Меню service.bat» — это штатное консольное меню zapret."/>
+                    </StackPanel>
+                  </Border>
+                </StackPanel>
+
+                <!-- Раздел: Настройки -->
+                <StackPanel x:Name="PageSettings" Visibility="Collapsed">
+                  <TextBlock Text="Настройки" Style="{StaticResource ZcPageTitle}"/>
+                  <TextBlock Text="Игровой фильтр, IPSet и пользовательские списки."
+                             Style="{StaticResource ZcHint}" Margin="2,6,0,16"/>
+                  <Border Style="{StaticResource ZcCard}">
+                    <StackPanel>
+                      <TextBlock Text="Игровой фильтр" Style="{StaticResource ZcCardTitle}"/>
+                      <TextBlock Text="Сужает порты, к которым применяется обход. Выключен — фильтр не используется."
+                                 Style="{StaticResource ZcHint}" Margin="0,6,0,16"/>
+                      <Grid>
+                        <Grid.ColumnDefinitions>
+                          <ColumnDefinition Width="190"/>
+                          <ColumnDefinition Width="16"/>
+                          <ColumnDefinition Width="150"/>
+                          <ColumnDefinition Width="16"/>
+                          <ColumnDefinition Width="150"/>
+                          <ColumnDefinition Width="16"/>
+                          <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                          <TextBlock Text="Режим" Style="{StaticResource ZcFieldLabel}"/>
+                          <ComboBox x:Name="CbGameMode" Style="{StaticResource ZcCombo}" SelectedIndex="0">
+                            <ComboBoxItem Content="Выключен"/>
+                            <ComboBoxItem Content="TCP и UDP"/>
+                            <ComboBoxItem Content="Только TCP"/>
+                            <ComboBoxItem Content="Только UDP"/>
+                          </ComboBox>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                          <TextBlock Text="TCP-порты" Style="{StaticResource ZcFieldLabel}"/>
+                          <TextBox x:Name="TxtGameTcp" Text="1024-65535" Style="{StaticResource ZcTextInput}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="4">
+                          <TextBlock Text="UDP-порты" Style="{StaticResource ZcFieldLabel}"/>
+                          <TextBox x:Name="TxtGameUdp" Text="1024-65535" Style="{StaticResource ZcTextInput}"/>
+                        </StackPanel>
+                        <Button x:Name="BtnApplyGame" Grid.Column="6" Content="Применить" Width="130"
+                                Style="{StaticResource ZcPrimary}" VerticalAlignment="Bottom"/>
+                      </Grid>
+                      <TextBlock Text="Формат: 1024-65535 или 1024-1934,1936-65535. Изменения применятся после перезапуска zapret."
+                                 Style="{StaticResource ZcHint}" Margin="0,14,0,0"/>
+                    </StackPanel>
+                  </Border>
+
+                  <Border Style="{StaticResource ZcCard}">
+                    <StackPanel>
+                      <TextBlock Text="IPSet-фильтр" Style="{StaticResource ZcCardTitle}"/>
+                      <TextBlock Text="loaded — фильтр по списку, none — только исключения, any — без списка IPSet."
+                                 Style="{StaticResource ZcHint}" Margin="0,6,0,16"/>
+                      <StackPanel Orientation="Horizontal">
+                        <StackPanel Width="240">
+                          <TextBlock Text="Режим" Style="{StaticResource ZcFieldLabel}"/>
+                          <ComboBox x:Name="CbIpset" Style="{StaticResource ZcCombo}" SelectedIndex="0">
+                            <ComboBoxItem Content="Любой (any)"/>
+                            <ComboBoxItem Content="Отключён (none)"/>
+                            <ComboBoxItem Content="Загружен (loaded)"/>
+                          </ComboBox>
+                        </StackPanel>
+                        <Button x:Name="BtnApplyIpset" Content="Применить" Width="120"
+                                Style="{StaticResource ZcPrimary}" Margin="16,20,10,0" VerticalAlignment="Top"/>
+                        <Button x:Name="BtnUpdateIpset" Content="Обновить IPSet" Width="160"
+                                Style="{StaticResource ZcSecondary}" Margin="0,20,0,0" VerticalAlignment="Top"/>
+                      </StackPanel>
+                      <TextBlock Text="Обновление скачивает свежий список с GitHub и заменяет lists\ipset-all.txt."
+                                 Style="{StaticResource ZcHint}" Margin="0,14,0,0"/>
+                    </StackPanel>
+                  </Border>
+
+                  <Border Style="{StaticResource ZcCard}">
+                    <StackPanel>
+                      <TextBlock Text="Автопроверка обновлений пакета" Style="{StaticResource ZcCardTitle}"/>
+                      <CheckBox x:Name="ChkBatUpdates" Style="{StaticResource ZcCheck}" Margin="0,12,0,0"
+                                Content="Проверять обновления при запуске general*.bat"/>
+                      <TextBlock Text="Встроенная проверка пакета zapret (utils\check_updates.enabled). Автообновление самого zapret — в разделе «Обновление»."
+                                 Style="{StaticResource ZcHint}" Margin="0,8,0,0"/>
+                    </StackPanel>
+                  </Border>
+
+                  <Border Style="{StaticResource ZcCard}" Margin="0">
+                    <StackPanel>
+                      <TextBlock Text="Пользовательские списки" Style="{StaticResource ZcCardTitle}"/>
+                      <TextBlock Text="Добавляйте свои домены и IP в файлы *-user.txt. Файлы откроются в Блокноте."
+                                 Style="{StaticResource ZcHint}" Margin="0,6,0,14"/>
+                      <WrapPanel>
+                        <Button x:Name="BtnListGeneral" Content="Общие домены" Width="168"
+                                Style="{StaticResource ZcSecondary}" Margin="0,0,10,10"/>
+                        <Button x:Name="BtnListExclude" Content="Исключения" Width="168"
+                                Style="{StaticResource ZcSecondary}" Margin="0,0,10,10"/>
+                        <Button x:Name="BtnListIpset" Content="IP-исключения" Width="168"
+                                Style="{StaticResource ZcSecondary}" Margin="0,0,10,10"/>
+                        <Button x:Name="BtnListFolder" Content="Папка lists" Width="152"
+                                Style="{StaticResource ZcSecondary}" Margin="0,0,0,10"/>
+                      </WrapPanel>
+                    </StackPanel>
+                  </Border>
+                </StackPanel>
+
+                <!-- Раздел: Инструменты -->
+                <StackPanel x:Name="PageTools" Visibility="Collapsed">
+                  <TextBlock Text="Сервисные действия" Style="{StaticResource ZcPageTitle}"/>
+                  <TextBlock Text="Результат выполнения выводится в журнал внизу окна."
+                             Style="{StaticResource ZcHint}" Margin="2,6,0,16"/>
+                  <Border Style="{StaticResource ZcCard}" Margin="0">
+                    <StackPanel>
+                      <UniformGrid Columns="3">
+                        <Button x:Name="BtnToolIpset" Content="Обновить IPSet" Height="44"
+                                Style="{StaticResource ZcSecondary}" Margin="0,0,10,10"/>
+                        <Button x:Name="BtnToolHosts" Content="Обновить hosts" Height="44"
+                                Style="{StaticResource ZcSecondary}" Margin="0,0,10,10"/>
+                        <Button x:Name="BtnToolDiag" Content="Диагностика" Height="44"
+                                Style="{StaticResource ZcPrimary}" Margin="0,0,0,10"/>
+                        <Button x:Name="BtnToolFakes" Content="Заменить active fake" Height="44"
+                                Style="{StaticResource ZcSecondary}" Margin="0,0,10,10"/>
+                        <Button x:Name="BtnToolDiscord" Content="Очистить кэш Discord" Height="44"
+                                Style="{StaticResource ZcSecondary}" Margin="0,0,10,10"/>
+                        <Button x:Name="BtnToolWinDivert" Content="Убрать конфликт WinDivert" Height="44"
+                                Style="{StaticResource ZcSecondary}" Margin="0,0,0,10"/>
+                        <Button x:Name="BtnToolOpenRoot" Content="Открыть папку zapret" Height="44"
+                                Style="{StaticResource ZcSecondary}" Margin="0,0,10,10"/>
+                        <Button x:Name="BtnToolOpenData" Content="Открыть папку данных" Height="44"
+                                Style="{StaticResource ZcSecondary}" Margin="0,0,10,10"/>
+                        <Button x:Name="BtnToolServiceBat" Content="Меню service.bat" Height="44"
+                                Style="{StaticResource ZcSecondary}" Margin="0,0,0,10"/>
+                        <Button x:Name="BtnChooseFolder" Content="Выбрать папку zapret" Height="44"
+                                Style="{StaticResource ZcSecondary}" Margin="0,0,10,0"/>
+                        <Button x:Name="BtnReleases" Content="Страница релизов" Height="44"
+                                Style="{StaticResource ZcSecondary}" Margin="0,0,10,0"/>
+                        <Button x:Name="BtnAbout" Content="О программе" Height="44"
+                                Style="{StaticResource ZcSecondary}" Margin="0,0,0,0"/>
+                      </UniformGrid>
+                      <TextBlock Text="«Меню service.bat» открывает штатное консольное меню пакета — на случай, если нужна функция, которой нет в GUI."
+                                 Style="{StaticResource ZcHint}" Margin="0,16,0,0"/>
+                    </StackPanel>
+                  </Border>
+                </StackPanel>
+
+                <!-- Раздел: Тест стратегий -->
+                <StackPanel x:Name="PageTests" Visibility="Collapsed">
+                  <TextBlock Text="Тест стратегий" Style="{StaticResource ZcPageTitle}"/>
+                  <TextBlock Text="Запускает штатный тест из utils\test zapret.ps1 — тот же, что пункт 12 меню service.bat."
+                             Style="{StaticResource ZcHint}" Margin="2,6,0,16"/>
+                  <Border Style="{StaticResource ZcCard}">
+                    <StackPanel>
+                      <TextBlock Style="{StaticResource ZcBody}"
+                                 Text="Тест по очереди запускает стратегии и проверяет доступность Discord, YouTube и других целей. Это может занять несколько минут. Результаты сохраняются в utils\test results."/>
+                      <TextBlock Style="{StaticResource ZcBody}" Margin="0,10,0,0"
+                                 Text="Перед тестом служба zapret должна быть удалена, а winws.exe — остановлен. GUI предупредит и сделает это сам."/>
+                      <WrapPanel Margin="0,16,0,0">
+                        <Button x:Name="BtnRunTests" Content="Запустить тест стратегий" Width="280" Height="46"
+                                Style="{StaticResource ZcPrimary}" Margin="0,0,10,10"/>
+                        <Button x:Name="BtnTestResults" Content="Открыть папку результатов" Width="240" Height="46"
+                                Style="{StaticResource ZcSecondary}" Margin="0,0,0,10"/>
+                      </WrapPanel>
+                    </StackPanel>
+                  </Border>
+                  <Border Style="{StaticResource ZcCard}" Margin="0">
+                    <StackPanel>
+                      <TextBlock Text="Быстрая проверка соединения" Style="{StaticResource ZcCardTitle}"/>
+                      <TextBlock Text="Проверяет Discord, YouTube, Google и Cloudflare через curl. Полезно, чтобы понять, работает ли уже запущенная стратегия."
+                                 Style="{StaticResource ZcHint}" Margin="0,6,0,14"/>
+                      <Button x:Name="BtnQuickCheck" Content="Проверить соединение" Width="240" Height="40"
+                              Style="{StaticResource ZcSecondary}" HorizontalAlignment="Left"/>
+                    </StackPanel>
+                  </Border>
+                </StackPanel>
+
+                <!-- Раздел: Обновление -->
+                <StackPanel x:Name="PageUpdate" Visibility="Collapsed">
+                  <TextBlock Text="Обновление zapret с GitHub" Style="{StaticResource ZcPageTitle}"/>
+                  <TextBlock Text="Источник: github.com/Flowseal/zapret-discord-youtube · GUI / форк: Bugulmek"
+                             Style="{StaticResource ZcHint}" Margin="2,6,0,16"/>
+                  <Border Style="{StaticResource ZcCard}">
+                    <StackPanel>
+                      <Border Background="{StaticResource Field}" CornerRadius="10" Padding="14,12">
+                        <StackPanel>
+                          <TextBlock x:Name="LblUpdateLocal" Text="Установленная версия: —"
+                                     FontSize="13.5" FontWeight="SemiBold" Foreground="{StaticResource Ink}"/>
+                          <TextBlock x:Name="LblUpdateLatest" Text="Последняя на GitHub: —"
+                                     FontSize="12.5" Foreground="{StaticResource Muted}" Margin="0,4,0,0"/>
+                          <TextBlock x:Name="LblUpdateStatus" Text="Проверка ещё не выполнялась"
+                                     FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Muted}"
+                                     Margin="0,10,0,0"/>
+                        </StackPanel>
+                      </Border>
+                      <WrapPanel Margin="0,14,0,0">
+                        <Button x:Name="BtnCheckUpdates" Content="Проверить обновления" Width="190"
+                                Style="{StaticResource ZcSecondary}" Margin="0,0,10,10"/>
+                        <Button x:Name="BtnInstallUpdate" Content="Скачать и установить" Width="190"
+                                Style="{StaticResource ZcPrimary}" Margin="0,0,10,10" IsEnabled="False"/>
+                        <Button x:Name="LinkReleases" Content="Страница релизов на GitHub"
+                                Style="{StaticResource ZcGhost}" Margin="0,0,0,10"/>
+                      </WrapPanel>
+                      <CheckBox x:Name="ChkStartupUpdates" Style="{StaticResource ZcCheck}" Margin="0,6,0,0"
+                                Content="Проверять обновления при запуске GUI"/>
+                      <TextBlock Text="Новая версия ставится в отдельную папку рядом. Пользовательские списки и настройки переносятся, старая папка остаётся на месте."
+                                 Style="{StaticResource ZcHint}" Margin="0,10,0,0"/>
+                    </StackPanel>
+                  </Border>
+                  <Border Style="{StaticResource ZcCard}" Margin="0">
+                    <StackPanel>
+                      <TextBlock Text="Описание релиза" Style="{StaticResource ZcCardTitle}"/>
+                      <TextBox x:Name="TxtReleaseNotes" Style="{StaticResource ZcTextArea}" Height="230"
+                               Margin="0,12,0,0" IsReadOnly="True" FontSize="12.5"
+                               Text="Нажмите «Проверить обновления», чтобы получить информацию с GitHub."/>
+                    </StackPanel>
+                  </Border>
+                </StackPanel>
+
+              </Grid>
+            </ScrollViewer>
+          </Grid>
+        </Border>
+      </Grid>
+
+      <!-- Журнал -->
+      <Border Grid.Row="3" Margin="30,14,30,16" Style="{StaticResource ZcCard}" Padding="0">
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="44"/>
+            <RowDefinition Height="1"/>
+            <RowDefinition Height="*"/>
+          </Grid.RowDefinitions>
+          <Grid Grid.Row="0" Margin="18,0,14,0">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="Журнал" Style="{StaticResource ZcCardTitle}"
+                       VerticalAlignment="Center"/>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+              <CheckBox x:Name="ChkAutoScroll" Content="Автопрокрутка" Style="{StaticResource ZcCheck}"
+                        FontSize="12" Margin="0,0,14,0" IsChecked="True"/>
+              <Button x:Name="BtnOpenData" Content="Папка данных" Style="{StaticResource ZcSmall}" Margin="0,0,8,0"/>
+              <Button x:Name="BtnSaveLog" Content="Сохранить лог" Style="{StaticResource ZcSmall}" Margin="0,0,8,0"/>
+              <Button x:Name="BtnClearLog" Content="Очистить" Style="{StaticResource ZcSmall}"/>
+            </StackPanel>
+          </Grid>
+          <Border Grid.Row="1" Background="{StaticResource Hairline}"/>
+          <RichTextBox x:Name="RtbLog" Grid.Row="2" BorderThickness="0" Background="#FBFBFD"
+                       FontFamily="Cascadia Mono, Consolas, Courier New" FontSize="12"
+                       Foreground="{StaticResource Body}" IsReadOnly="True" IsUndoEnabled="False"
+                       VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                       SelectionBrush="#B3D7F7">
+            <FlowDocument PagePadding="0"/>
+          </RichTextBox>
+        </Grid>
+      </Border>
+
+      <!-- Статус-бар -->
+      <Border Grid.Row="4" BorderBrush="{StaticResource Hairline}" BorderThickness="0,1,0,0"
+              Background="{StaticResource Canvas}">
+        <Grid Margin="30,0">
+          <TextBlock x:Name="StatusLabel" Text="Готово" FontSize="11.5"
+                     Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+            <Button x:Name="BtnAboutFooter" Content="О программе" Style="{StaticResource ZcGhost}"
+                    Height="24" Margin="0,0,8,0"/>
+            <TextBlock x:Name="FooterVersion" Text="1.1.0 · MIT" FontSize="11.5"
+                       Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
+          </StackPanel>
+        </Grid>
+      </Border>
+
+    </Grid>
+  </Border>
+</Window>
+'@
+
+try {
+    $script:Window = [Windows.Markup.XamlReader]::Parse($windowXaml)
+} catch {
+    [void][Windows.MessageBox]::Show(
+        ("Не удалось загрузить интерфейс:`n" + $_.Exception.Message),
+        'Zapret Control', 'OK', 'Error')
+    exit 1
 }
 
-function New-RowStyle {
-    param([string]$Type, [int]$Value = 0)
-    $style = New-Object Windows.Forms.RowStyle
-    $style.SizeType = $Type
-    if ($Value -gt 0) { $style.Height = $Value }
-    return $style
+$script:Form = $script:Window
+
+function Get-Ui {
+    param([string]$Name)
+    return $script:Window.FindName($Name)
 }
 
-function New-ColumnStyle {
-    param([string]$Type, [int]$Value = 0)
-    $style = New-Object Windows.Forms.ColumnStyle
-    $style.SizeType = $Type
-    if ($Value -gt 0) { $style.Width = $Value }
-    return $style
+$script:LstStrategies     = Get-Ui 'LstStrategies'
+$script:RtbLog            = Get-Ui 'RtbLog'
+$script:StatusLabel       = Get-Ui 'StatusLabel'
+$script:AdminPill         = Get-Ui 'AdminPill'
+$script:AdminPillText     = Get-Ui 'AdminPillText'
+$script:AdminPillDot      = Get-Ui 'AdminPillDot'
+$script:ChkAutostart      = Get-Ui 'ChkAutostart'
+$script:ChkBatUpdates     = Get-Ui 'ChkBatUpdates'
+$script:ChkAutoScroll     = Get-Ui 'ChkAutoScroll'
+$script:ChkStartupUpdates = Get-Ui 'ChkStartupUpdates'
+$script:CbGameMode        = Get-Ui 'CbGameMode'
+$script:CbIpset           = Get-Ui 'CbIpset'
+$script:TxtGameTcp        = Get-Ui 'TxtGameTcp'
+$script:TxtGameUdp        = Get-Ui 'TxtGameUdp'
+$script:LblServiceUsing   = Get-Ui 'LblServiceUsing'
+$script:LblUpdateLocal    = Get-Ui 'LblUpdateLocal'
+$script:LblUpdateLatest   = Get-Ui 'LblUpdateLatest'
+$script:LblUpdateStatus   = Get-Ui 'LblUpdateStatus'
+$script:TxtReleaseNotes   = Get-Ui 'TxtReleaseNotes'
+$script:BtnRestartService = Get-Ui 'BtnRestartService'
+$script:BtnRemoveService  = Get-Ui 'BtnRemoveService'
+$script:BtnInstallUpdate  = Get-Ui 'BtnInstallUpdate'
+
+$script:StatusLabels = @{
+    Service  = Get-Ui 'StatusService'
+    Winws    = Get-Ui 'StatusWinws'
+    Strategy = Get-Ui 'StatusStrategy'
+    Ipset    = Get-Ui 'StatusIpset'
+    Game     = Get-Ui 'StatusGame'
+    Updates  = Get-Ui 'StatusUpdates'
+    Version  = Get-Ui 'StatusVersion'
+    Admin    = Get-Ui 'StatusAdmin'
 }
+
+(Get-Ui 'VersionChipText').Text = $script:ZC_AppVersion
+(Get-Ui 'FooterVersion').Text = $script:ZC_AppVersion + ' · MIT'
+
+$script:RtbLog.Document.PagePadding = New-Object Windows.Thickness(18, 10, 12, 10)
 
 # ---------------------------------------------------------------------------
 #  Журнал / диалоги / статус
@@ -246,64 +1208,144 @@ function Write-UiLog {
     if (-not $script:RtbLog) { return }
 
     $colorMap = @{
-        'Text'   = $script:ClrLogText
-        'Gray'   = [Drawing.ColorTranslator]::FromHtml('#94A3B8')
-        'Green'  = [Drawing.ColorTranslator]::FromHtml('#4ADE80')
-        'Red'    = [Drawing.ColorTranslator]::FromHtml('#F87171')
-        'Yellow' = [Drawing.ColorTranslator]::FromHtml('#FACC15')
-        'Cyan'   = [Drawing.ColorTranslator]::FromHtml('#67E8F9')
-        'Blue'   = [Drawing.ColorTranslator]::FromHtml('#93C5FD')
+        'Text'   = $script:BrLogText
+        'Gray'   = $script:BrLogGray
+        'Green'  = $script:BrGreen
+        'Red'    = $script:BrRed
+        'Yellow' = $script:BrOrange
+        'Cyan'   = Get-Brush '#0A6E9E'
+        'Blue'   = Get-Brush '#0A5BB5'
     }
-    $drawColor = $colorMap[$Color]
-    if (-not $drawColor) { $drawColor = $script:ClrLogText }
+    $brush = $colorMap[$Color]
+    if (-not $brush) { $brush = $script:BrLogText }
 
-    if ($script:RtbLog.TextLength -gt 250000) { $script:RtbLog.Clear() }
+    $document = $script:RtbLog.Document
+    if ($document.Blocks.Count -gt 2600) { $script:RtbLog.Clear() }
 
-    $line = '[' + (Get-Date -Format 'HH:mm:ss') + '] ' + $Text + "`r`n"
-    $script:RtbLog.SelectionStart = $script:RtbLog.TextLength
-    $script:RtbLog.SelectionLength = 0
-    $script:RtbLog.SelectionColor = $drawColor
-    $script:RtbLog.AppendText($line)
-    if ($script:ChkAutoScroll -and $script:ChkAutoScroll.Checked) {
-        $script:RtbLog.ScrollToCaret()
+    $paragraph = New-Object Windows.Documents.Paragraph
+    $paragraph.Margin = New-Object Windows.Thickness(0)
+    $paragraph.LineHeight = 17
+    $run = New-Object Windows.Documents.Run(('[' + (Get-Date -Format 'HH:mm:ss') + '] ' + $Text))
+    $run.Foreground = $brush
+    [void]$paragraph.Inlines.Add($run)
+    [void]$document.Blocks.Add($paragraph)
+
+    if ($script:ChkAutoScroll -and $script:ChkAutoScroll.IsChecked -eq $true) {
+        $script:RtbLog.ScrollToEnd()
     }
+}
+
+function Get-LogText {
+    if (-not $script:RtbLog) { return '' }
+    $range = New-Object Windows.Documents.TextRange($script:RtbLog.Document.ContentStart, $script:RtbLog.Document.ContentEnd)
+    return $range.Text
 }
 
 function Set-BusyStatus {
     param([string]$Text)
     if ($script:StatusLabel) {
         $script:StatusLabel.Text = $Text
-        [Windows.Forms.Application]::DoEvents()
+        try {
+            $script:Window.Dispatcher.Invoke([action]{}, [Windows.Threading.DispatcherPriority]::Render)
+        } catch { }
     }
+}
+
+function New-ZcButton {
+    param([string]$Text, [string]$StyleKey = 'ZcSecondary', [double]$Width = 0)
+    $button = New-Object Windows.Controls.Button
+    $button.Content = $Text
+    $button.Style = $script:Window.Resources[$StyleKey]
+    if ($Width -gt 0) { $button.Width = $Width }
+    return $button
+}
+
+function Show-ZcDialog {
+    param(
+        [string]$Text,
+        [string]$Title = 'Zapret Control',
+        [ValidateSet('info', 'error', 'question')][string]$Kind = 'info',
+        [switch]$Confirm,
+        [string]$OkText = 'ОК',
+        [string]$CancelText = 'Отмена'
+    )
+
+    if (-not $script:Window) {
+        $buttons = if ($Confirm) { 'YesNo' } else { 'OK' }
+        $icon = if ($Kind -eq 'error') { 'Error' } elseif ($Kind -eq 'question') { 'Question' } else { 'Information' }
+        $result = [Windows.MessageBox]::Show($Text, $Title, $buttons, $icon)
+        return ($result -eq [Windows.MessageBoxResult]::Yes)
+    }
+
+    $dialog = New-Object Windows.Window
+    $dialog.Title = $Title
+    $dialog.Width = 470
+    $dialog.SizeToContent = [Windows.SizeToContent]::Height
+    $dialog.ResizeMode = [Windows.ResizeMode]::NoResize
+    $dialog.WindowStartupLocation = [Windows.WindowStartupLocation]::CenterOwner
+    $dialog.Background = $script:BrSurface
+    $dialog.FontFamily = $script:UiFont
+    $dialog.FontSize = 13.5
+    $dialog.Foreground = $script:BrInk
+    $dialog.ShowInTaskbar = $false
+    $dialog.Owner = $script:Window
+
+    $panel = New-Object Windows.Controls.StackPanel
+    $panel.Margin = New-Object Windows.Thickness(26, 24, 26, 20)
+
+    $heading = New-Object Windows.Controls.TextBlock
+    $heading.Text = $Title
+    $heading.FontSize = 18
+    $heading.FontWeight = [Windows.FontWeights]::SemiBold
+    $heading.Foreground = $script:BrInk
+    [void]$panel.Children.Add($heading)
+
+    $message = New-Object Windows.Controls.TextBlock
+    $message.Text = $Text
+    $message.TextWrapping = [Windows.TextWrapping]::Wrap
+    $message.FontSize = 13.5
+    $message.LineHeight = 20
+    $message.Foreground = $script:BrBody
+    $message.Margin = New-Object Windows.Thickness(0, 10, 0, 20)
+    [void]$panel.Children.Add($message)
+
+    $row = New-Object Windows.Controls.StackPanel
+    $row.Orientation = [Windows.Controls.Orientation]::Horizontal
+    $row.HorizontalAlignment = [Windows.HorizontalAlignment]::Right
+
+    if ($Confirm) {
+        $cancel = New-ZcButton -Text $CancelText -StyleKey 'ZcSecondary' -Width 110
+        $cancel.Margin = New-Object Windows.Thickness(0, 0, 10, 0)
+        $cancel.IsCancel = $true
+        $cancel.Add_Click({ $dialog.DialogResult = $false }.GetNewClosure())
+        [void]$row.Children.Add($cancel)
+    }
+
+    $ok = New-ZcButton -Text $OkText -StyleKey 'ZcPrimary' -Width 110
+    $ok.IsDefault = $true
+    $ok.Add_Click({ $dialog.DialogResult = $true }.GetNewClosure())
+    [void]$row.Children.Add($ok)
+
+    [void]$panel.Children.Add($row)
+    $dialog.Content = $panel
+
+    $result = $dialog.ShowDialog()
+    return ($result -eq $true)
 }
 
 function Show-UiInfo {
     param([string]$Text, [string]$Title = 'Zapret Control')
-    if ($script:Form) {
-        [void][Windows.Forms.MessageBox]::Show($script:Form, $Text, $Title,
-            [Windows.Forms.MessageBoxButtons]::OK, [Windows.Forms.MessageBoxIcon]::Information)
-    } else {
-        [void][Windows.Forms.MessageBox]::Show($Text, $Title,
-            [Windows.Forms.MessageBoxButtons]::OK, [Windows.Forms.MessageBoxIcon]::Information)
-    }
+    [void](Show-ZcDialog -Text $Text -Title $Title -Kind 'info')
 }
 
 function Show-UiError {
     param([string]$Text, [string]$Title = 'Ошибка')
-    if ($script:Form) {
-        [void][Windows.Forms.MessageBox]::Show($script:Form, $Text, $Title,
-            [Windows.Forms.MessageBoxButtons]::OK, [Windows.Forms.MessageBoxIcon]::Error)
-    } else {
-        [void][Windows.Forms.MessageBox]::Show($Text, $Title,
-            [Windows.Forms.MessageBoxButtons]::OK, [Windows.Forms.MessageBoxIcon]::Error)
-    }
+    [void](Show-ZcDialog -Text $Text -Title $Title -Kind 'error')
 }
 
 function Confirm-Ui {
     param([string]$Text, [string]$Title = 'Подтверждение')
-    $result = [Windows.Forms.MessageBox]::Show($script:Form, $Text, $Title,
-        [Windows.Forms.MessageBoxButtons]::YesNo, [Windows.Forms.MessageBoxIcon]::Question)
-    return ($result -eq [Windows.Forms.DialogResult]::Yes)
+    return [bool](Show-ZcDialog -Text $Text -Title $Title -Kind 'question' -Confirm)
 }
 
 function Set-StatusValue {
@@ -311,9 +1353,26 @@ function Set-StatusValue {
     $label = $script:StatusLabels[$Key]
     if ($label) {
         $label.Text = $Text
-        if ($Color) { $label.ForeColor = $Color }
+        if ($Color) { $label.Foreground = $Color }
     }
 }
+
+function Set-AdminPill {
+    param([bool]$IsAdmin)
+    if (-not $script:AdminPillText) { return }
+    if ($IsAdmin) {
+        $script:AdminPill.Background = $script:BrPillOk
+        $script:AdminPillText.Text = 'администратор'
+        $script:AdminPillText.Foreground = $script:BrGreen
+        $script:AdminPillDot.Fill = $script:BrPillOkDot
+    } else {
+        $script:AdminPill.Background = $script:BrPillBad
+        $script:AdminPillText.Text = 'нет прав'
+        $script:AdminPillText.Foreground = $script:BrRed
+        $script:AdminPillDot.Fill = $script:BrPillBadDot
+    }
+}
+
 # ---------------------------------------------------------------------------
 #  Список стратегий и запуск
 # ---------------------------------------------------------------------------
@@ -327,15 +1386,10 @@ function Get-SelectedStrategyName {
 function Refresh-StrategyList {
     if (-not $script:LstStrategies) { return }
 
-    $script:LstStrategies.BeginUpdate()
-    try {
-        $script:LstStrategies.Items.Clear()
-        $script:StrategyFiles = @(Get-Strategies -Root $script:ZapretRoot)
-        foreach ($strategy in $script:StrategyFiles) {
-            [void]$script:LstStrategies.Items.Add($strategy.Name)
-        }
-    } finally {
-        $script:LstStrategies.EndUpdate()
+    $script:LstStrategies.Items.Clear()
+    $script:StrategyFiles = @(Get-Strategies -Root $script:ZapretRoot)
+    foreach ($strategy in $script:StrategyFiles) {
+        [void]$script:LstStrategies.Items.Add($strategy.Name)
     }
 
     if ($script:StrategyFiles.Count -eq 0) {
@@ -635,16 +1689,17 @@ function Set-AutostartAction {
     $service = Get-Service -Name 'zapret' -ErrorAction SilentlyContinue
     if (-not $service) { Update-AllStatus; return }
 
-    if ($script:ChkAutostart.Checked) { $startMode = 'auto' } else { $startMode = 'demand' }
+    if ($script:ChkAutostart.IsChecked -eq $true) { $startMode = 'auto' } else { $startMode = 'demand' }
     & sc.exe config zapret 'start=' $startMode 2>$null | Out-Null
 
-    if ($script:ChkAutostart.Checked) {
+    if ($script:ChkAutostart.IsChecked -eq $true) {
         Write-UiLog 'Автозапуск службы включён.' 'Green'
     } else {
         Write-UiLog 'Автозапуск службы выключен.' 'Yellow'
     }
     Update-AllStatus
 }
+
 # ---------------------------------------------------------------------------
 #  Обновление статуса
 # ---------------------------------------------------------------------------
@@ -654,88 +1709,82 @@ function Update-AllStatus {
     # Служба
     $service = Get-ServiceInfo -Name 'zapret'
     if (-not $service.Installed) {
-        Set-StatusValue 'Service' 'не установлена' $script:ClrMuted
+        Set-StatusValue 'Service' 'не установлена' $script:BrMuted
     } elseif ($service.Status -eq 'Running') {
-        Set-StatusValue 'Service' 'работает' $script:ClrGreen
+        Set-StatusValue 'Service' 'работает' $script:BrGreen
     } else {
-        Set-StatusValue 'Service' ('остановлена' + $(if ($service.Status -ne 'Stopped') { " ($($service.Status))" } else { '' })) $script:ClrOrange
+        Set-StatusValue 'Service' ('остановлена' + $(if ($service.Status -ne 'Stopped') { " ($($service.Status))" } else { '' })) $script:BrOrange
     }
 
     # Процесс winws
     $winws = @(Get-WinwsProcesses)
     if ($winws.Count -gt 0) {
-        Set-StatusValue 'Winws' ('работает · PID ' + (($winws | ForEach-Object { $_.Id }) -join ', ')) $script:ClrGreen
+        Set-StatusValue 'Winws' ('работает · PID ' + (($winws | ForEach-Object { $_.Id }) -join ', ')) $script:BrGreen
     } else {
-        Set-StatusValue 'Winws' 'не запущен' $script:ClrMuted
+        Set-StatusValue 'Winws' 'не запущен' $script:BrMuted
     }
 
     # Стратегия службы
     $serviceStrategy = Get-ServiceStrategy
     if ($serviceStrategy) {
-        Set-StatusValue 'Strategy' $serviceStrategy $script:ClrText
+        Set-StatusValue 'Strategy' $serviceStrategy $script:BrInk
     } else {
-        Set-StatusValue 'Strategy' '—' $script:ClrMuted
+        Set-StatusValue 'Strategy' '—' $script:BrMuted
     }
 
     # Права
     if (Test-IsAdmin) {
-        Set-StatusValue 'Admin' 'администратор' $script:ClrGreen
-        if ($script:AdminBadge) {
-            $script:AdminBadge.Text = '● администратор'
-            $script:AdminBadge.ForeColor = $script:ClrGreen
-        }
+        Set-StatusValue 'Admin' 'администратор' $script:BrGreen
+        Set-AdminPill $true
     } else {
-        Set-StatusValue 'Admin' 'нет прав' $script:ClrRed
-        if ($script:AdminBadge) {
-            $script:AdminBadge.Text = '● нет прав'
-            $script:AdminBadge.ForeColor = $script:ClrRed
-        }
+        Set-StatusValue 'Admin' 'нет прав' $script:BrRed
+        Set-AdminPill $false
     }
 
     # IPSet
     $ipset = Get-IpsetState -Root $script:ZapretRoot
     switch ($ipset) {
-        'loaded' { Set-StatusValue 'Ipset' 'загружен (loaded)' $script:ClrGreen }
-        'none'   { Set-StatusValue 'Ipset' 'отключён (none)' $script:ClrOrange }
-        default  { Set-StatusValue 'Ipset' 'любой (any)' $script:ClrMuted }
+        'loaded' { Set-StatusValue 'Ipset' 'загружен (loaded)' $script:BrGreen }
+        'none'   { Set-StatusValue 'Ipset' 'отключён (none)' $script:BrOrange }
+        default  { Set-StatusValue 'Ipset' 'любой (any)' $script:BrMuted }
     }
 
     # Игровой фильтр
     $gameFilter = Get-GameFilterState -Root $script:ZapretRoot
     switch ($gameFilter.Mode) {
-        'all' { Set-StatusValue 'Game' ('TCP+UDP · ' + $gameFilter.Tcp) $script:ClrGreen }
-        'tcp' { Set-StatusValue 'Game' ('TCP · ' + $gameFilter.Tcp) $script:ClrGreen }
-        'udp' { Set-StatusValue 'Game' ('UDP · ' + $gameFilter.Udp) $script:ClrGreen }
-        default { Set-StatusValue 'Game' 'выключен' $script:ClrMuted }
+        'all' { Set-StatusValue 'Game' ('TCP+UDP · ' + $gameFilter.Tcp) $script:BrGreen }
+        'tcp' { Set-StatusValue 'Game' ('TCP · ' + $gameFilter.Tcp) $script:BrGreen }
+        'udp' { Set-StatusValue 'Game' ('UDP · ' + $gameFilter.Udp) $script:BrGreen }
+        default { Set-StatusValue 'Game' 'выключен' $script:BrMuted }
     }
 
     # Встроенная проверка обновлений .bat
     if (Test-Path -LiteralPath (Join-Path $script:ZapretRoot 'utils\check_updates.enabled')) {
-        Set-StatusValue 'Updates' 'включена' $script:ClrGreen
+        Set-StatusValue 'Updates' 'включена' $script:BrGreen
     } else {
-        Set-StatusValue 'Updates' 'выключена' $script:ClrMuted
+        Set-StatusValue 'Updates' 'выключена' $script:BrMuted
     }
 
     # Версия пакета
     $version = Get-LocalZapretVersion -Root $script:ZapretRoot
     if ($version) {
-        Set-StatusValue 'Version' $version $script:ClrText
+        Set-StatusValue 'Version' $version $script:BrInk
     } else {
-        Set-StatusValue 'Version' '—' $script:ClrMuted
+        Set-StatusValue 'Version' '—' $script:BrMuted
     }
 
     # Элементы управления, зависящие от службы
     if ($script:ChkAutostart -and $script:BtnRestartService -and $script:BtnRemoveService) {
         $script:SyncingUi = $true
         try {
-            $script:ChkAutostart.Enabled = $service.Installed
+            $script:ChkAutostart.IsEnabled = $service.Installed
             if ($service.Installed) {
-                $script:ChkAutostart.Checked = ($service.StartType -eq 'Auto')
+                $script:ChkAutostart.IsChecked = ($service.StartType -eq 'Auto')
             } else {
-                $script:ChkAutostart.Checked = $false
+                $script:ChkAutostart.IsChecked = $false
             }
-            $script:BtnRestartService.Enabled = $service.Installed
-            $script:BtnRemoveService.Enabled = $service.Installed
+            $script:BtnRestartService.IsEnabled = $service.Installed
+            $script:BtnRemoveService.IsEnabled = $service.Installed
         } finally {
             $script:SyncingUi = $false
         }
@@ -778,7 +1827,7 @@ function Load-SettingsIntoUi {
         }
         $script:CbIpset.SelectedIndex = $ipsetIndex
 
-        $script:ChkBatUpdates.Checked = Test-Path -LiteralPath (Join-Path $script:ZapretRoot 'utils\check_updates.enabled')
+        $script:ChkBatUpdates.IsChecked = Test-Path -LiteralPath (Join-Path $script:ZapretRoot 'utils\check_updates.enabled')
     } finally {
         $script:SyncInputs = $false
     }
@@ -902,7 +1951,7 @@ function Set-BatUpdatesAction {
 
     $file = Join-Path $script:ZapretRoot 'utils\check_updates.enabled'
     try {
-        if ($script:ChkBatUpdates.Checked) {
+        if ($script:ChkBatUpdates.IsChecked -eq $true) {
             Set-Content -LiteralPath $file -Value 'ENABLED' -Encoding Ascii
             Write-UiLog 'Встроенная проверка обновлений .bat включена.' 'Green'
         } else {
@@ -968,6 +2017,7 @@ function Read-WinwsLog {
         Write-UiLog ('winws: ' + $clean) $color
     }
 }
+
 # ---------------------------------------------------------------------------
 #  Диагностика
 # ---------------------------------------------------------------------------
@@ -1264,44 +2314,77 @@ function Open-FakesDialog {
 
     if ($fakes.Count -eq 0) { Show-UiError 'В папке bin не найдены fake-файлы *.bin.'; return }
 
-    $dialog = New-Object Windows.Forms.Form
-    $dialog.Text = 'Замена active fake'
-    $dialog.Size = New-Object Drawing.Size(640, 520)
-    $dialog.StartPosition = 'CenterParent'
-    $dialog.FormBorderStyle = 'FixedDialog'
-    $dialog.MaximizeBox = $false
-    $dialog.MinimizeBox = $false
-    $dialog.BackColor = $script:ClrBg
-    $dialog.Font = $script:FontUi
+    $dialog = New-Object Windows.Window
+    $dialog.Title = 'Замена active fake'
+    $dialog.Width = 640
+    $dialog.Height = 640
+    $dialog.ResizeMode = [Windows.ResizeMode]::NoResize
+    $dialog.WindowStartupLocation = [Windows.WindowStartupLocation]::CenterOwner
+    $dialog.Background = $script:BrSurface
+    $dialog.FontFamily = $script:UiFont
+    $dialog.FontSize = 13
+    $dialog.Foreground = $script:BrInk
+    $dialog.Owner = $script:Window
+    $dialog.ShowInTaskbar = $false
 
-    $targetLabel = New-UiLabel -Text 'Что заменяем:' -X 16 -Y 14 -Width 560 -Height 20 -Font $script:FontUiBold
-    $targetCombo = New-Object Windows.Forms.ComboBox
-    $targetCombo.Location = New-Object Drawing.Point(16, 36)
-    $targetCombo.Size = New-Object Drawing.Size(596, 24)
-    $targetCombo.DropDownStyle = 'DropDownList'
-    $targetCombo.Font = $script:FontUi
+    $panel = New-Object Windows.Controls.StackPanel
+    $panel.Margin = New-Object Windows.Thickness(22, 20, 22, 18)
+
+    $caption = New-Object Windows.Controls.TextBlock
+    $caption.Text = 'Что заменяем'
+    $caption.Style = $script:Window.Resources['ZcFieldLabel']
+    [void]$panel.Children.Add($caption)
+
+    $targetCombo = New-Object Windows.Controls.ComboBox
+    $targetCombo.Style = $script:Window.Resources['ZcCombo']
+    $targetCombo.Margin = New-Object Windows.Thickness(0, 0, 0, 12)
     [void]$targetCombo.Items.Add('Discord UDP  (ACTIVE_DISCORD_UDP.bin)')
     [void]$targetCombo.Items.Add('GameFilter UDP  (ACTIVE_GAME_UDP.bin)')
     $targetCombo.SelectedIndex = 0
+    [void]$panel.Children.Add($targetCombo)
 
-    $currentLabel = New-UiLabel -Text 'Текущий fake: —' -X 16 -Y 70 -Width 596 -Height 20 -Font $script:FontUi -Color $script:ClrMuted
-    $listLabel = New-UiLabel -Text 'Доступные fake-файлы:' -X 16 -Y 96 -Width 560 -Height 20 -Font $script:FontUiBold
+    $currentLabel = New-Object Windows.Controls.TextBlock
+    $currentLabel.Text = 'Текущий fake: —'
+    $currentLabel.FontSize = 12.5
+    $currentLabel.Foreground = $script:BrMuted
+    $currentLabel.Margin = New-Object Windows.Thickness(1, 0, 0, 14)
+    [void]$panel.Children.Add($currentLabel)
 
-    $listBox = New-Object Windows.Forms.ListBox
-    $listBox.Location = New-Object Drawing.Point(16, 118)
-    $listBox.Size = New-Object Drawing.Size(596, 290)
-    $listBox.Font = New-Object Drawing.Font('Segoe UI', 10)
-    $listBox.BorderStyle = 'FixedSingle'
-    $listBox.IntegralHeight = $false
+    $listLabel = New-Object Windows.Controls.TextBlock
+    $listLabel.Text = 'Доступные fake-файлы'
+    $listLabel.Style = $script:Window.Resources['ZcFieldLabel']
+    [void]$panel.Children.Add($listLabel)
+
+    $listBox = New-Object Windows.Controls.ListBox
+    $listBox.Style = $script:Window.Resources['ZcList']
+    $listBox.Height = 300
+    $listBox.Margin = New-Object Windows.Thickness(0, 0, 0, 12)
+    $listBox.Background = $script:BrSurface
     foreach ($fake in $fakes) { [void]$listBox.Items.Add($fake.Name) }
     if ($listBox.Items.Count -gt 0) { $listBox.SelectedIndex = 0 }
+    [void]$panel.Children.Add($listBox)
 
-    $statusLabel = New-UiLabel -Text '' -X 16 -Y 416 -Width 360 -Height 40 -Font $script:FontSmall -Color $script:ClrGreen
+    $statusLabel = New-Object Windows.Controls.TextBlock
+    $statusLabel.Text = ''
+    $statusLabel.FontSize = 12
+    $statusLabel.TextWrapping = [Windows.TextWrapping]::Wrap
+    $statusLabel.Foreground = $script:BrGreen
+    $statusLabel.MinHeight = 34
+    $statusLabel.Margin = New-Object Windows.Thickness(1, 0, 0, 8)
+    [void]$panel.Children.Add($statusLabel)
 
-    $btnReplace = New-StyledButton -Text 'Заменить' -Width 120 -Height 34 -Kind 'primary'
-    $btnReplace.Location = New-Object Drawing.Point(372, 430)
-    $btnClose = New-StyledButton -Text 'Закрыть' -Width 100 -Height 34 -Kind 'secondary'
-    $btnClose.Location = New-Object Drawing.Point(502, 430)
+    $buttons = New-Object Windows.Controls.StackPanel
+    $buttons.Orientation = [Windows.Controls.Orientation]::Horizontal
+    $buttons.HorizontalAlignment = [Windows.HorizontalAlignment]::Right
+
+    $btnReplace = New-ZcButton -Text 'Заменить' -StyleKey 'ZcPrimary' -Width 130
+    $btnReplace.Margin = New-Object Windows.Thickness(0, 0, 10, 0)
+    [void]$buttons.Children.Add($btnReplace)
+    $btnClose = New-ZcButton -Text 'Закрыть' -StyleKey 'ZcSecondary' -Width 110
+    [void]$buttons.Children.Add($btnClose)
+    [void]$panel.Children.Add($buttons)
+
+    $dialog.Content = $panel
 
     $activeNames = @('ACTIVE_DISCORD_UDP.bin', 'ACTIVE_GAME_UDP.bin')
 
@@ -1316,9 +2399,9 @@ function Open-FakesDialog {
             }
         }
         $currentLabel.Text = 'Текущий fake: ' + $foundName
-    }
+    }.GetNewClosure()
 
-    $targetCombo.Add_SelectedIndexChanged($updateCurrent)
+    $targetCombo.Add_SelectionChanged($updateCurrent)
     & $updateCurrent
 
     $btnReplace.Add_Click({
@@ -1328,22 +2411,20 @@ function Open-FakesDialog {
         $source = $fakes[$listBox.SelectedIndex].FullName
         try {
             Copy-Item -LiteralPath $source -Destination $activePath -Force -ErrorAction Stop
-            $statusLabel.ForeColor = $script:ClrGreen
-            $statusLabel.Text = 'Заменено: ' + $fakes[$listBox.SelectedIndex].Name + "`r`nПерезапустите zapret."
+            $statusLabel.Foreground = $script:BrGreen
+            $statusLabel.Text = 'Заменено: ' + $fakes[$listBox.SelectedIndex].Name + ". Перезапустите zapret."
             Write-UiLog ('Active fake заменён: ' + $activeName + ' → ' + $fakes[$listBox.SelectedIndex].Name) 'Green'
             & $updateCurrent
         } catch {
-            $statusLabel.ForeColor = $script:ClrRed
+            $statusLabel.Foreground = $script:BrRed
             $statusLabel.Text = 'Ошибка: ' + $_.Exception.Message
             Write-UiLog ('Ошибка замены fake: ' + $_.Exception.Message) 'Red'
         }
-    })
+    }.GetNewClosure())
 
-    $btnClose.Add_Click({ $dialog.Close() })
+    $btnClose.Add_Click({ $dialog.Close() }.GetNewClosure())
 
-    $dialog.Controls.AddRange(@($targetLabel, $targetCombo, $currentLabel, $listLabel, $listBox, $statusLabel, $btnReplace, $btnClose))
-    [void]$dialog.ShowDialog($script:Form)
-    $dialog.Dispose()
+    [void]$dialog.ShowDialog()
 }
 
 # ---------------------------------------------------------------------------
@@ -1401,6 +2482,7 @@ function Quick-CheckAction {
     }
     Set-BusyStatus 'Проверка завершена'
 }
+
 # ---------------------------------------------------------------------------
 #  Обновление zapret с GitHub
 # ---------------------------------------------------------------------------
@@ -1414,7 +2496,7 @@ function Check-UpdatesAction {
     if (-not $release) {
         if ($script:LblUpdateStatus) {
             $script:LblUpdateStatus.Text = 'Ошибка проверки GitHub'
-            $script:LblUpdateStatus.ForeColor = $script:ClrRed
+            $script:LblUpdateStatus.Foreground = $script:BrRed
         }
         if (-not $Silent) {
             Write-UiLog 'Не удалось получить данные с GitHub.' 'Red'
@@ -1442,27 +2524,24 @@ function Check-UpdatesAction {
 
     $available = ($local -and $remote -and $remote -gt $local)
     $script:UpdateAvailable = $available
-    if ($script:BtnInstallUpdate) { $script:BtnInstallUpdate.Enabled = $available }
+    if ($script:BtnInstallUpdate) { $script:BtnInstallUpdate.IsEnabled = $available }
 
     if ($available) {
         if ($script:LblUpdateStatus) {
             $script:LblUpdateStatus.Text = 'Доступно обновление ' + $release.Tag
-            $script:LblUpdateStatus.ForeColor = $script:ClrGreen
+            $script:LblUpdateStatus.Foreground = $script:BrGreen
         }
         Write-UiLog ('Доступно обновление: ' + $release.Tag + ' (установлено ' + $local + ')') 'Green'
 
         if (-not $Silent) {
-            $answer = [Windows.Forms.MessageBox]::Show($script:Form,
-                "Доступна новая версия zapret: $($release.Tag)`nУстановлена: $local`n`nСкачать и установить сейчас?",
-                'Обновление zapret',
-                [Windows.Forms.MessageBoxButtons]::YesNo,
-                [Windows.Forms.MessageBoxIcon]::Question)
-            if ($answer -eq [Windows.Forms.DialogResult]::Yes) { Install-UpdateAction }
+            if (Confirm-Ui ("Доступна новая версия zapret: $($release.Tag)`nУстановлена: $local`n`nСкачать и установить сейчас?") 'Обновление zapret') {
+                Install-UpdateAction
+            }
         }
     } else {
         if ($script:LblUpdateStatus) {
             $script:LblUpdateStatus.Text = 'Установлена последняя версия'
-            $script:LblUpdateStatus.ForeColor = $script:ClrMuted
+            $script:LblUpdateStatus.Foreground = $script:BrMuted
         }
         if (-not $Silent) { Write-UiLog 'Установлена последняя версия zapret.' 'Green' }
     }
@@ -1566,7 +2645,7 @@ function Install-UpdateAction {
                 Write-UiLog 'Переустановка службы на новую версию...' 'Cyan'
                 $ok = Install-ServiceInternal -StrategyName $strategyForService -NoConfirm
                 if (-not $ok) {
-                    Write-UiLog 'Службу не удалось переустановить. Сделайте это вручную на вкладке «Служба».' 'Red'
+                    Write-UiLog 'Службу не удалось переустановить. Сделайте это вручную в разделе «Служба».' 'Red'
                 }
             }
         }
@@ -1651,678 +2730,7 @@ function Show-About {
         "Требуются права администратора."
     Show-UiInfo $text 'О программе'
 }
-# ---------------------------------------------------------------------------
-#  ОКНО
-# ---------------------------------------------------------------------------
-$script:Form = New-Object Windows.Forms.Form
-$form = $script:Form
-$form.Text = 'Zapret Control — управление zapret-discord-youtube (форк Bugulmek)'
-$form.StartPosition = 'CenterScreen'
-$form.BackColor = $script:ClrBg
-$form.Font = $script:FontUi
-$form.MinimumSize = New-Object Drawing.Size(1000, 700)
 
-$workArea = [Windows.Forms.Screen]::PrimaryScreen.WorkingArea
-$formWidth = [Math]::Min(1180, $workArea.Width - 40)
-$formHeight = [Math]::Min(900, $workArea.Height - 40)
-if ($formWidth -lt 1000) { $formWidth = 1000 }
-if ($formHeight -lt 700) { $formHeight = 700 }
-$form.Size = New-Object Drawing.Size($formWidth, $formHeight)
-
-$rootLayout = New-Object Windows.Forms.TableLayoutPanel
-$rootLayout.Dock = 'Fill'
-$rootLayout.ColumnCount = 1
-$rootLayout.RowCount = 6
-$rootLayout.BackColor = $script:ClrBg
-$rootLayout.ColumnStyles.Add((New-ColumnStyle 'Percent' 100))
-$rootLayout.RowStyles.Add((New-RowStyle 'Absolute' 26))
-$rootLayout.RowStyles.Add((New-RowStyle 'Absolute' 60))
-$rootLayout.RowStyles.Add((New-RowStyle 'Absolute' 112))
-$rootLayout.RowStyles.Add((New-RowStyle 'Percent' 100))
-$rootLayout.RowStyles.Add((New-RowStyle 'Absolute' 180))
-$rootLayout.RowStyles.Add((New-RowStyle 'Absolute' 24))
-$form.Controls.Add($rootLayout)
-
-# ---------------------------------------------------------------------------
-#  Меню
-# ---------------------------------------------------------------------------
-$menu = New-Object Windows.Forms.MenuStrip
-$menu.Dock = 'Fill'
-$menu.BackColor = $script:ClrCard
-$menu.Font = $script:FontUi
-
-$menuFile = New-Object Windows.Forms.ToolStripMenuItem
-$menuFile.Text = 'Файл'
-$script:MiChooseFolder = New-Object Windows.Forms.ToolStripMenuItem
-$script:MiChooseFolder.Text = 'Выбрать папку zapret…'
-$script:MiOpenRoot = New-Object Windows.Forms.ToolStripMenuItem
-$script:MiOpenRoot.Text = 'Открыть папку zapret'
-$script:MiExit = New-Object Windows.Forms.ToolStripMenuItem
-$script:MiExit.Text = 'Выход'
-[void]$menuFile.DropDownItems.Add($script:MiChooseFolder)
-[void]$menuFile.DropDownItems.Add($script:MiOpenRoot)
-[void]$menuFile.DropDownItems.Add((New-Object Windows.Forms.ToolStripSeparator))
-[void]$menuFile.DropDownItems.Add($script:MiExit)
-
-$menuService = New-Object Windows.Forms.ToolStripMenuItem
-$menuService.Text = 'Служба'
-$script:MiInstallService = New-Object Windows.Forms.ToolStripMenuItem
-$script:MiInstallService.Text = 'Установить службу'
-$script:MiRemoveService = New-Object Windows.Forms.ToolStripMenuItem
-$script:MiRemoveService.Text = 'Удалить службу'
-$script:MiRestartService = New-Object Windows.Forms.ToolStripMenuItem
-$script:MiRestartService.Text = 'Перезапустить службу'
-$script:MiDiagnostics = New-Object Windows.Forms.ToolStripMenuItem
-$script:MiDiagnostics.Text = 'Диагностика'
-$script:MiTests = New-Object Windows.Forms.ToolStripMenuItem
-$script:MiTests.Text = 'Тест стратегий'
-[void]$menuService.DropDownItems.Add($script:MiInstallService)
-[void]$menuService.DropDownItems.Add($script:MiRemoveService)
-[void]$menuService.DropDownItems.Add($script:MiRestartService)
-[void]$menuService.DropDownItems.Add((New-Object Windows.Forms.ToolStripSeparator))
-[void]$menuService.DropDownItems.Add($script:MiDiagnostics)
-[void]$menuService.DropDownItems.Add($script:MiTests)
-
-$menuHelp = New-Object Windows.Forms.ToolStripMenuItem
-$menuHelp.Text = 'Справка'
-$script:MiAbout = New-Object Windows.Forms.ToolStripMenuItem
-$script:MiAbout.Text = 'О программе'
-$script:MiGithub = New-Object Windows.Forms.ToolStripMenuItem
-$script:MiGithub.Text = 'GitHub Flowseal'
-[void]$menuHelp.DropDownItems.Add($script:MiGithub)
-[void]$menuHelp.DropDownItems.Add($script:MiAbout)
-
-[void]$menu.Items.Add($menuFile)
-[void]$menu.Items.Add($menuService)
-[void]$menu.Items.Add($menuHelp)
-$form.MainMenuStrip = $menu
-$rootLayout.Controls.Add($menu, 0, 0)
-
-# ---------------------------------------------------------------------------
-#  Шапка
-# ---------------------------------------------------------------------------
-$header = New-Object Windows.Forms.Panel
-$header.Dock = 'Fill'
-$header.BackColor = $script:ClrCard
-$header.Margin = New-Object Windows.Forms.Padding(8, 4, 8, 2)
-
-$headerTitle = New-UiLabel -Text 'ZAPRET CONTROL' -X 14 -Y 6 -Width 340 -Height 28 -Font $script:FontTitle -Color $script:ClrAccent
-$headerSubtitle = New-UiLabel -Text 'Управление zapret-discord-youtube · тест стратегий · автообновление с GitHub · форк Bugulmek' -X 16 -Y 34 -Width 760 -Height 18 -Font $script:FontSmall -Color $script:ClrMuted
-
-$adminBadge = New-Object Windows.Forms.Label
-if (Test-IsAdmin) {
-    $adminBadge.Text = '● администратор'
-    $adminBadge.ForeColor = $script:ClrGreen
-} else {
-    $adminBadge.Text = '● нет прав'
-    $adminBadge.ForeColor = $script:ClrRed
-}
-$adminBadge.AutoSize = $false
-$adminBadge.Width = 220
-$adminBadge.Dock = 'Right'
-$adminBadge.TextAlign = 'MiddleRight'
-$adminBadge.Font = $script:FontUiBold
-$adminBadge.Padding = New-Object Windows.Forms.Padding(0, 0, 14, 0)
-$script:AdminBadge = $adminBadge
-
-$header.Controls.Add($adminBadge)
-$header.Controls.Add($headerTitle)
-$header.Controls.Add($headerSubtitle)
-$rootLayout.Controls.Add($header, 0, 1)
-
-# ---------------------------------------------------------------------------
-#  Панель состояния
-# ---------------------------------------------------------------------------
-$statusGroup = New-Object Windows.Forms.GroupBox
-$statusGroup.Text = ' Состояние '
-$statusGroup.Dock = 'Fill'
-$statusGroup.BackColor = $script:ClrCard
-$statusGroup.ForeColor = $script:ClrText
-$statusGroup.Font = $script:FontUiBold
-$statusGroup.Margin = New-Object Windows.Forms.Padding(8, 2, 8, 2)
-$statusGroup.Padding = New-Object Windows.Forms.Padding(10, 4, 10, 4)
-
-$statusTable = New-Object Windows.Forms.TableLayoutPanel
-$statusTable.Dock = 'Fill'
-$statusTable.ColumnCount = 4
-$statusTable.RowCount = 4
-$statusTable.BackColor = $script:ClrCard
-for ($i = 0; $i -lt 4; $i++) { $statusTable.ColumnStyles.Add((New-ColumnStyle 'Percent' 25)) }
-$statusTable.RowStyles.Add((New-RowStyle 'Absolute' 18))
-$statusTable.RowStyles.Add((New-RowStyle 'Absolute' 30))
-$statusTable.RowStyles.Add((New-RowStyle 'Absolute' 18))
-$statusTable.RowStyles.Add((New-RowStyle 'Absolute' 30))
-
-$statusDefs = @(
-    @{ Key = 'Service'; Caption = 'Служба zapret' },
-    @{ Key = 'Winws'; Caption = 'winws.exe' },
-    @{ Key = 'Strategy'; Caption = 'Стратегия службы' },
-    @{ Key = 'Admin'; Caption = 'Права' },
-    @{ Key = 'Ipset'; Caption = 'IPSet' },
-    @{ Key = 'Game'; Caption = 'Игровой фильтр' },
-    @{ Key = 'Updates'; Caption = 'Автообновление .bat' },
-    @{ Key = 'Version'; Caption = 'Версия zapret' }
-)
-
-for ($i = 0; $i -lt $statusDefs.Count; $i++) {
-    $def = $statusDefs[$i]
-    $col = $i % 4
-    $block = [int][Math]::Floor($i / 4)
-    $captionRow = $block * 2
-    $valueRow = $captionRow + 1
-
-    $caption = New-Object Windows.Forms.Label
-    $caption.Text = $def.Caption
-    $caption.Dock = 'Fill'
-    $caption.Font = $script:FontSmall
-    $caption.ForeColor = $script:ClrMuted
-    $caption.TextAlign = 'BottomLeft'
-    $caption.Margin = New-Object Windows.Forms.Padding(4, 0, 4, 0)
-
-    $value = New-Object Windows.Forms.Label
-    $value.Text = '—'
-    $value.Dock = 'Fill'
-    $value.Font = $script:FontHeader
-    $value.ForeColor = $script:ClrText
-    $value.TextAlign = 'TopLeft'
-    $value.AutoEllipsis = $true
-    $value.Margin = New-Object Windows.Forms.Padding(4, 0, 4, 2)
-
-    $statusTable.Controls.Add($caption, $col, $captionRow)
-    $statusTable.Controls.Add($value, $col, $valueRow)
-    $script:StatusLabels[$def.Key] = $value
-}
-
-$statusGroup.Controls.Add($statusTable)
-$rootLayout.Controls.Add($statusGroup, 0, 2)
-
-# ---------------------------------------------------------------------------
-#  Тело: список стратегий + вкладки
-# ---------------------------------------------------------------------------
-$bodyLayout = New-Object Windows.Forms.TableLayoutPanel
-$bodyLayout.Dock = 'Fill'
-$bodyLayout.ColumnCount = 2
-$bodyLayout.RowCount = 1
-$bodyLayout.BackColor = $script:ClrBg
-$bodyLayout.Margin = New-Object Windows.Forms.Padding(8, 2, 8, 2)
-$bodyLayout.ColumnStyles.Add((New-ColumnStyle 'Absolute' 330))
-$bodyLayout.ColumnStyles.Add((New-ColumnStyle 'Percent' 100))
-$rootLayout.Controls.Add($bodyLayout, 0, 3)
-
-$strategiesGroup = New-Object Windows.Forms.GroupBox
-$strategiesGroup.Text = ' Стратегии (двойной клик — запуск) '
-$strategiesGroup.Dock = 'Fill'
-$strategiesGroup.BackColor = $script:ClrCard
-$strategiesGroup.ForeColor = $script:ClrText
-$strategiesGroup.Font = $script:FontUiBold
-$strategiesGroup.Margin = New-Object Windows.Forms.Padding(0, 0, 4, 0)
-$strategiesGroup.Padding = New-Object Windows.Forms.Padding(8, 4, 8, 6)
-
-$leftTable = New-Object Windows.Forms.TableLayoutPanel
-$leftTable.Dock = 'Fill'
-$leftTable.ColumnCount = 1
-$leftTable.RowCount = 3
-$leftTable.BackColor = $script:ClrCard
-$leftTable.ColumnStyles.Add((New-ColumnStyle 'Percent' 100))
-$leftTable.RowStyles.Add((New-RowStyle 'Percent' 100))
-$leftTable.RowStyles.Add((New-RowStyle 'Absolute' 22))
-$leftTable.RowStyles.Add((New-RowStyle 'Absolute' 82))
-
-$script:LstStrategies = New-Object Windows.Forms.ListBox
-$script:LstStrategies.Dock = 'Fill'
-$script:LstStrategies.Font = New-Object Drawing.Font('Segoe UI', 10)
-$script:LstStrategies.BorderStyle = 'FixedSingle'
-$script:LstStrategies.IntegralHeight = $false
-$script:LstStrategies.HorizontalScrollbar = $true
-$script:LstStrategies.Margin = New-Object Windows.Forms.Padding(0, 2, 0, 4)
-
-$script:LblServiceUsing = New-Object Windows.Forms.Label
-$script:LblServiceUsing.Text = 'Служба использует: —'
-$script:LblServiceUsing.Dock = 'Fill'
-$script:LblServiceUsing.Font = $script:FontSmall
-$script:LblServiceUsing.ForeColor = $script:ClrMuted
-$script:LblServiceUsing.TextAlign = 'MiddleLeft'
-$script:LblServiceUsing.Margin = New-Object Windows.Forms.Padding(2, 0, 2, 4)
-
-$leftButtons = New-Object Windows.Forms.TableLayoutPanel
-$leftButtons.Dock = 'Fill'
-$leftButtons.ColumnCount = 2
-$leftButtons.RowCount = 2
-$leftButtons.BackColor = $script:ClrCard
-$leftButtons.ColumnStyles.Add((New-ColumnStyle 'Percent' 50))
-$leftButtons.ColumnStyles.Add((New-ColumnStyle 'Percent' 50))
-$leftButtons.RowStyles.Add((New-RowStyle 'Percent' 50))
-$leftButtons.RowStyles.Add((New-RowStyle 'Percent' 50))
-
-$script:BtnStart = New-StyledButton -Text '▶ Запустить' -Kind 'primary'
-$script:BtnStop = New-StyledButton -Text '⏹ Остановить' -Kind 'danger'
-$script:BtnInstall = New-StyledButton -Text 'Установить службу' -Kind 'secondary'
-$script:BtnRemove = New-StyledButton -Text 'Удалить службу' -Kind 'secondary'
-
-foreach ($button in @($script:BtnStart, $script:BtnStop, $script:BtnInstall, $script:BtnRemove)) {
-    $button.Dock = 'Fill'
-    $button.Margin = New-Object Windows.Forms.Padding(2)
-}
-
-$leftButtons.Controls.Add($script:BtnStart, 0, 0)
-$leftButtons.Controls.Add($script:BtnStop, 1, 0)
-$leftButtons.Controls.Add($script:BtnInstall, 0, 1)
-$leftButtons.Controls.Add($script:BtnRemove, 1, 1)
-
-$leftTable.Controls.Add($script:LstStrategies, 0, 0)
-$leftTable.Controls.Add($script:LblServiceUsing, 0, 1)
-$leftTable.Controls.Add($leftButtons, 0, 2)
-$strategiesGroup.Controls.Add($leftTable)
-$bodyLayout.Controls.Add($strategiesGroup, 0, 0)
-
-# ---------------------------------------------------------------------------
-#  Журнал
-# ---------------------------------------------------------------------------
-$logGroup = New-Object Windows.Forms.GroupBox
-$logGroup.Text = ' Журнал '
-$logGroup.Dock = 'Fill'
-$logGroup.BackColor = $script:ClrCard
-$logGroup.ForeColor = $script:ClrText
-$logGroup.Font = $script:FontUiBold
-$logGroup.Margin = New-Object Windows.Forms.Padding(8, 2, 8, 6)
-$logGroup.Padding = New-Object Windows.Forms.Padding(8, 4, 8, 6)
-
-$logTable = New-Object Windows.Forms.TableLayoutPanel
-$logTable.Dock = 'Fill'
-$logTable.ColumnCount = 1
-$logTable.RowCount = 2
-$logTable.BackColor = $script:ClrCard
-$logTable.ColumnStyles.Add((New-ColumnStyle 'Percent' 100))
-$logTable.RowStyles.Add((New-RowStyle 'Percent' 100))
-$logTable.RowStyles.Add((New-RowStyle 'Absolute' 34))
-
-$script:RtbLog = New-Object Windows.Forms.RichTextBox
-$script:RtbLog.Dock = 'Fill'
-$script:RtbLog.BackColor = $script:ClrLogBg
-$script:RtbLog.ForeColor = $script:ClrLogText
-$script:RtbLog.Font = $script:FontMono
-$script:RtbLog.ReadOnly = $true
-$script:RtbLog.BorderStyle = 'None'
-$script:RtbLog.WordWrap = $false
-$script:RtbLog.HideSelection = $false
-$script:RtbLog.Margin = New-Object Windows.Forms.Padding(0, 2, 0, 4)
-
-$logButtons = New-Object Windows.Forms.FlowLayoutPanel
-$logButtons.Dock = 'Fill'
-$logButtons.FlowDirection = 'RightToLeft'
-$logButtons.WrapContents = $false
-$logButtons.BackColor = $script:ClrCard
-$logButtons.Margin = New-Object Windows.Forms.Padding(0)
-
-$script:BtnOpenData = New-StyledButton -Text 'Папка данных' -Width 130 -Height 28
-$script:BtnOpenData.Margin = New-Object Windows.Forms.Padding(4, 2, 0, 2)
-$script:BtnSaveLog = New-StyledButton -Text 'Сохранить лог…' -Width 130 -Height 28
-$script:BtnSaveLog.Margin = New-Object Windows.Forms.Padding(4, 2, 0, 2)
-$script:BtnClearLog = New-StyledButton -Text 'Очистить' -Width 100 -Height 28
-$script:BtnClearLog.Margin = New-Object Windows.Forms.Padding(4, 2, 0, 2)
-
-$script:ChkAutoScroll = New-Object Windows.Forms.CheckBox
-$script:ChkAutoScroll.Text = 'Автопрокрутка'
-$script:ChkAutoScroll.AutoSize = $true
-$script:ChkAutoScroll.Checked = $true
-$script:ChkAutoScroll.Font = $script:FontUi
-$script:ChkAutoScroll.ForeColor = $script:ClrText
-$script:ChkAutoScroll.Margin = New-Object Windows.Forms.Padding(4, 6, 8, 2)
-
-[void]$logButtons.Controls.Add($script:BtnOpenData)
-[void]$logButtons.Controls.Add($script:BtnSaveLog)
-[void]$logButtons.Controls.Add($script:BtnClearLog)
-[void]$logButtons.Controls.Add($script:ChkAutoScroll)
-
-$logTable.Controls.Add($script:RtbLog, 0, 0)
-$logTable.Controls.Add($logButtons, 0, 1)
-$logGroup.Controls.Add($logTable)
-$rootLayout.Controls.Add($logGroup, 0, 4)
-
-# ---------------------------------------------------------------------------
-#  Строка состояния
-# ---------------------------------------------------------------------------
-$statusStrip = New-Object Windows.Forms.StatusStrip
-$statusStrip.Dock = 'Fill'
-$statusStrip.SizingGrip = $false
-$statusStrip.BackColor = $script:ClrCard
-
-$script:StatusLabel = New-Object Windows.Forms.ToolStripStatusLabel
-$script:StatusLabel.Text = 'Готово'
-$script:StatusLabel.Spring = $true
-$script:StatusLabel.TextAlign = 'MiddleLeft'
-
-$versionItem = New-Object Windows.Forms.ToolStripStatusLabel
-$versionItem.Text = 'Zapret Control ' + $script:ZC_AppVersion + ' · форк Bugulmek'
-$versionItem.ForeColor = $script:ClrMuted
-
-[void]$statusStrip.Items.Add($script:StatusLabel)
-[void]$statusStrip.Items.Add($versionItem)
-$rootLayout.Controls.Add($statusStrip, 0, 5)
-# ---------------------------------------------------------------------------
-#  ВКЛАДКИ
-# ---------------------------------------------------------------------------
-function New-TabPage {
-    param([string]$Title)
-    $page = New-Object Windows.Forms.TabPage
-    $page.Text = '  ' + $Title + '  '
-    $page.BackColor = $script:ClrCard
-    $page.Padding = New-Object Windows.Forms.Padding(12)
-    $page.AutoScroll = $true
-    $page.Font = $script:FontUi
-    return $page
-}
-
-$tabs = New-Object Windows.Forms.TabControl
-$tabs.Dock = 'Fill'
-$tabs.Font = $script:FontUi
-$tabs.Margin = New-Object Windows.Forms.Padding(4, 0, 0, 0)
-$bodyLayout.Controls.Add($tabs, 1, 0)
-
-# --- Вкладка: Служба -------------------------------------------------------
-$pageService = New-TabPage 'Служба'
-$tabs.TabPages.Add($pageService)
-
-$grpService = New-Object Windows.Forms.GroupBox
-$grpService.Text = ' Служба Windows «zapret» '
-$grpService.Location = New-Object Drawing.Point(12, 12)
-$grpService.Size = New-Object Drawing.Size(760, 164)
-$grpService.Anchor = 'Top,Left,Right'
-$grpService.BackColor = $script:ClrCard
-$grpService.ForeColor = $script:ClrText
-$grpService.Font = $script:FontUiBold
-
-$lblServiceInfo = New-UiLabel -Text 'Служба устанавливает выбранную стратегию слева и запускает её автоматически при старте Windows (до входа в систему).' -X 14 -Y 24 -Width 720 -Height 32 -Font $script:FontUi -Color $script:ClrText
-
-$script:ChkAutostart = New-Object Windows.Forms.CheckBox
-$script:ChkAutostart.Text = 'Запускать службу автоматически при старте Windows'
-$script:ChkAutostart.Location = New-Object Drawing.Point(14, 60)
-$script:ChkAutostart.Size = New-Object Drawing.Size(520, 22)
-$script:ChkAutostart.Font = $script:FontUi
-$script:ChkAutostart.ForeColor = $script:ClrText
-
-$script:BtnRestartService = New-StyledButton -Text 'Перезапустить' -Width 160 -Height 34
-$script:BtnRestartService.Location = New-Object Drawing.Point(14, 100)
-$script:BtnRemoveService = New-StyledButton -Text 'Удалить службу' -Width 160 -Height 34 -Kind 'danger'
-$script:BtnRemoveService.Location = New-Object Drawing.Point(184, 100)
-$script:BtnServiceBat = New-StyledButton -Text 'Меню service.bat' -Width 160 -Height 34
-$script:BtnServiceBat.Location = New-Object Drawing.Point(354, 100)
-$script:BtnOpenRoot = New-StyledButton -Text 'Папка zapret' -Width 160 -Height 34
-$script:BtnOpenRoot.Location = New-Object Drawing.Point(524, 100)
-
-$grpService.Controls.AddRange(@($lblServiceInfo, $script:ChkAutostart, $script:BtnRestartService,
-    $script:BtnRemoveService, $script:BtnServiceBat, $script:BtnOpenRoot))
-
-$grpHelp = New-Object Windows.Forms.GroupBox
-$grpHelp.Text = ' Как это работает '
-$grpHelp.Location = New-Object Drawing.Point(12, 186)
-$grpHelp.Size = New-Object Drawing.Size(760, 250)
-$grpHelp.Anchor = 'Top,Left,Right'
-$grpHelp.BackColor = $script:ClrCard
-$grpHelp.ForeColor = $script:ClrText
-$grpHelp.Font = $script:FontUiBold
-
-$helpText = New-Object Windows.Forms.TextBox
-$helpText.Multiline = $true
-$helpText.ReadOnly = $true
-$helpText.BorderStyle = 'None'
-$helpText.BackColor = $script:ClrCard
-$helpText.ForeColor = $script:ClrText
-$helpText.Font = $script:FontUi
-$helpText.ScrollBars = 'Vertical'
-$helpText.Dock = 'Fill'
-$helpText.Text = @'
-Запуск без службы
-  Выберите стратегию слева и нажмите «Запустить». winws.exe будет запущен
-  в фоне, настройки возьмутся из выбранного general*.bat.
-
-Служба Windows
-  «Установить службу» создаёт службу zapret с выбранной стратегией и
-  автозапуском. Служба работает до входа в систему и переживает перезагрузку.
-  Перед установкой службы запущенный вручную winws.exe останавливается.
-
-Смена настроек
-  Игровой фильтр и IPSet хранятся в файлах. Чтобы изменения применились,
-  службу нужно переустановить, а ручной запуск — перезапустить.
-  GUI предложит это сделать автоматически.
-
-Важно
-  Одновременно должен работать только один экземпляр zapret. Служба и ручной
-  запуск конфликтуют между собой — это нормально, GUI предупредит.
-'@
-
-$grpHelp.Controls.Add($helpText)
-$pageService.Controls.Add($grpService)
-$pageService.Controls.Add($grpHelp)
-
-# --- Вкладка: Настройки ----------------------------------------------------
-$pageSettings = New-TabPage 'Настройки'
-$tabs.TabPages.Add($pageSettings)
-
-# Игровой фильтр
-$grpGame = New-Object Windows.Forms.GroupBox
-$grpGame.Text = ' Игровой фильтр (Game Filter) '
-$grpGame.Location = New-Object Drawing.Point(12, 12)
-$grpGame.Size = New-Object Drawing.Size(760, 146)
-$grpGame.Anchor = 'Top,Left,Right'
-$grpGame.BackColor = $script:ClrCard
-$grpGame.ForeColor = $script:ClrText
-$grpGame.Font = $script:FontUiBold
-
-$lblGameMode = New-UiLabel -Text 'Режим:' -X 14 -Y 26 -Width 100 -Height 18 -Font $script:FontSmall -Color $script:ClrMuted
-$script:CbGameMode = New-Object Windows.Forms.ComboBox
-$script:CbGameMode.Location = New-Object Drawing.Point(14, 46)
-$script:CbGameMode.Size = New-Object Drawing.Size(180, 24)
-$script:CbGameMode.DropDownStyle = 'DropDownList'
-$script:CbGameMode.Font = $script:FontUi
-[void]$script:CbGameMode.Items.Add('Выключен')
-[void]$script:CbGameMode.Items.Add('TCP и UDP')
-[void]$script:CbGameMode.Items.Add('Только TCP')
-[void]$script:CbGameMode.Items.Add('Только UDP')
-$script:CbGameMode.SelectedIndex = 0
-
-$lblGameTcp = New-UiLabel -Text 'TCP-порты:' -X 210 -Y 26 -Width 160 -Height 18 -Font $script:FontSmall -Color $script:ClrMuted
-$script:TxtGameTcp = New-Object Windows.Forms.TextBox
-$script:TxtGameTcp.Location = New-Object Drawing.Point(210, 46)
-$script:TxtGameTcp.Size = New-Object Drawing.Size(160, 24)
-$script:TxtGameTcp.Font = $script:FontUi
-$script:TxtGameTcp.Text = '1024-65535'
-
-$lblGameUdp = New-UiLabel -Text 'UDP-порты:' -X 386 -Y 26 -Width 160 -Height 18 -Font $script:FontSmall -Color $script:ClrMuted
-$script:TxtGameUdp = New-Object Windows.Forms.TextBox
-$script:TxtGameUdp.Location = New-Object Drawing.Point(386, 46)
-$script:TxtGameUdp.Size = New-Object Drawing.Size(160, 24)
-$script:TxtGameUdp.Font = $script:FontUi
-$script:TxtGameUdp.Text = '1024-65535'
-
-$script:BtnApplyGame = New-StyledButton -Text 'Применить' -Width 120 -Height 30 -Kind 'primary'
-$script:BtnApplyGame.Location = New-Object Drawing.Point(560, 44)
-
-$gameHint = New-UiLabel -Text 'Формат: 1024-65535 или 1024-1934,1936-65535. Изменения применяются после перезапуска/переустановки zapret.' -X 14 -Y 88 -Width 730 -Height 36 -Font $script:FontSmall -Color $script:ClrMuted
-
-$grpGame.Controls.AddRange(@($lblGameMode, $script:CbGameMode, $lblGameTcp, $script:TxtGameTcp,
-    $lblGameUdp, $script:TxtGameUdp, $script:BtnApplyGame, $gameHint))
-
-# IPSet
-$grpIpset = New-Object Windows.Forms.GroupBox
-$grpIpset.Text = ' IPSet-фильтр '
-$grpIpset.Location = New-Object Drawing.Point(12, 168)
-$grpIpset.Size = New-Object Drawing.Size(760, 126)
-$grpIpset.Anchor = 'Top,Left,Right'
-$grpIpset.BackColor = $script:ClrCard
-$grpIpset.ForeColor = $script:ClrText
-$grpIpset.Font = $script:FontUiBold
-
-$lblIpsetMode = New-UiLabel -Text 'Режим IPSet:' -X 14 -Y 26 -Width 160 -Height 18 -Font $script:FontSmall -Color $script:ClrMuted
-$script:CbIpset = New-Object Windows.Forms.ComboBox
-$script:CbIpset.Location = New-Object Drawing.Point(14, 46)
-$script:CbIpset.Size = New-Object Drawing.Size(220, 24)
-$script:CbIpset.DropDownStyle = 'DropDownList'
-$script:CbIpset.Font = $script:FontUi
-[void]$script:CbIpset.Items.Add('Любой (any)')
-[void]$script:CbIpset.Items.Add('Отключён (none)')
-[void]$script:CbIpset.Items.Add('Загружен (loaded)')
-$script:CbIpset.SelectedIndex = 0
-
-$script:BtnApplyIpset = New-StyledButton -Text 'Применить' -Width 110 -Height 30 -Kind 'primary'
-$script:BtnApplyIpset.Location = New-Object Drawing.Point(246, 44)
-$script:BtnUpdateIpset = New-StyledButton -Text 'Обновить IPSet' -Width 150 -Height 30
-$script:BtnUpdateIpset.Location = New-Object Drawing.Point(366, 44)
-
-$ipsetHint = New-UiLabel -Text 'loaded — фильтр по списку, none — только исключения, any — без списка IPSet. Обновление скачивает свежий список с GitHub.' -X 14 -Y 86 -Width 730 -Height 30 -Font $script:FontSmall -Color $script:ClrMuted
-
-$grpIpset.Controls.AddRange(@($lblIpsetMode, $script:CbIpset, $script:BtnApplyIpset, $script:BtnUpdateIpset, $ipsetHint))
-
-# Автопроверка .bat
-$grpBatUpdates = New-Object Windows.Forms.GroupBox
-$grpBatUpdates.Text = ' Автопроверка обновлений пакета '
-$grpBatUpdates.Location = New-Object Drawing.Point(12, 304)
-$grpBatUpdates.Size = New-Object Drawing.Size(760, 92)
-$grpBatUpdates.Anchor = 'Top,Left,Right'
-$grpBatUpdates.BackColor = $script:ClrCard
-$grpBatUpdates.ForeColor = $script:ClrText
-$grpBatUpdates.Font = $script:FontUiBold
-
-$script:ChkBatUpdates = New-Object Windows.Forms.CheckBox
-$script:ChkBatUpdates.Text = 'Проверять обновления при запуске general*.bat (utils\check_updates.enabled)'
-$script:ChkBatUpdates.Location = New-Object Drawing.Point(14, 24)
-$script:ChkBatUpdates.Size = New-Object Drawing.Size(700, 22)
-$script:ChkBatUpdates.Font = $script:FontUi
-$script:ChkBatUpdates.ForeColor = $script:ClrText
-
-$batUpdatesHint = New-UiLabel -Text 'Это встроенная проверка пакета zapret. Автообновление самого zapret — на вкладке «Обновление».' -X 14 -Y 54 -Width 720 -Height 24 -Font $script:FontSmall -Color $script:ClrMuted
-
-$grpBatUpdates.Controls.AddRange(@($script:ChkBatUpdates, $batUpdatesHint))
-
-# Пользовательские списки
-$grpUserLists = New-Object Windows.Forms.GroupBox
-$grpUserLists.Text = ' Пользовательские списки '
-$grpUserLists.Location = New-Object Drawing.Point(12, 406)
-$grpUserLists.Size = New-Object Drawing.Size(760, 118)
-$grpUserLists.Anchor = 'Top,Left,Right'
-$grpUserLists.BackColor = $script:ClrCard
-$grpUserLists.ForeColor = $script:ClrText
-$grpUserLists.Font = $script:FontUiBold
-
-$userListsHint = New-UiLabel -Text 'Добавляйте свои домены и IP в файлы *-user.txt. Файлы откроются в Блокноте.' -X 14 -Y 24 -Width 720 -Height 20 -Font $script:FontSmall -Color $script:ClrMuted
-
-$script:BtnListGeneral = New-StyledButton -Text 'Общие домены' -Width 160 -Height 34
-$script:BtnListGeneral.Location = New-Object Drawing.Point(14, 52)
-$script:BtnListExclude = New-StyledButton -Text 'Исключения' -Width 160 -Height 34
-$script:BtnListExclude.Location = New-Object Drawing.Point(184, 52)
-$script:BtnListIpset = New-StyledButton -Text 'IP-исключения' -Width 160 -Height 34
-$script:BtnListIpset.Location = New-Object Drawing.Point(354, 52)
-$script:BtnListFolder = New-StyledButton -Text 'Папка lists' -Width 160 -Height 34
-$script:BtnListFolder.Location = New-Object Drawing.Point(524, 52)
-
-$grpUserLists.Controls.AddRange(@($userListsHint, $script:BtnListGeneral, $script:BtnListExclude, $script:BtnListIpset, $script:BtnListFolder))
-
-$pageSettings.Controls.Add($grpGame)
-$pageSettings.Controls.Add($grpIpset)
-$pageSettings.Controls.Add($grpBatUpdates)
-$pageSettings.Controls.Add($grpUserLists)
-
-# --- Вкладка: Инструменты --------------------------------------------------
-$pageTools = New-TabPage 'Инструменты'
-$tabs.TabPages.Add($pageTools)
-
-$toolsTitle = New-UiLabel -Text 'Сервисные действия' -X 12 -Y 8 -Width 400 -Height 26 -Font (New-Object Drawing.Font('Segoe UI', 12, [Drawing.FontStyle]::Bold)) -Color $script:ClrText
-$toolsHint = New-UiLabel -Text 'Результат выполнения всех инструментов и диагностики выводится в журнал внизу окна.' -X 12 -Y 36 -Width 720 -Height 20 -Font $script:FontSmall -Color $script:ClrMuted
-
-$script:BtnToolIpset = New-StyledButton -Text 'Обновить IPSet' -Width 200 -Height 44
-$script:BtnToolIpset.Location = New-Object Drawing.Point(12, 70)
-$script:BtnToolHosts = New-StyledButton -Text 'Обновить hosts' -Width 200 -Height 44
-$script:BtnToolHosts.Location = New-Object Drawing.Point(224, 70)
-$script:BtnToolDiag = New-StyledButton -Text 'Диагностика' -Width 200 -Height 44 -Kind 'primary'
-$script:BtnToolDiag.Location = New-Object Drawing.Point(436, 70)
-$script:BtnToolFakes = New-StyledButton -Text 'Заменить active fake' -Width 200 -Height 44
-$script:BtnToolFakes.Location = New-Object Drawing.Point(12, 126)
-$script:BtnToolDiscord = New-StyledButton -Text 'Очистить кэш Discord' -Width 200 -Height 44
-$script:BtnToolDiscord.Location = New-Object Drawing.Point(224, 126)
-$script:BtnToolWinDivert = New-StyledButton -Text 'Убрать конфликт WinDivert' -Width 200 -Height 44
-$script:BtnToolWinDivert.Location = New-Object Drawing.Point(436, 126)
-$script:BtnToolOpenRoot = New-StyledButton -Text 'Открыть папку zapret' -Width 200 -Height 44
-$script:BtnToolOpenRoot.Location = New-Object Drawing.Point(12, 182)
-$script:BtnToolOpenData = New-StyledButton -Text 'Открыть папку данных' -Width 200 -Height 44
-$script:BtnToolOpenData.Location = New-Object Drawing.Point(224, 182)
-$script:BtnToolServiceBat = New-StyledButton -Text 'Меню service.bat' -Width 200 -Height 44
-$script:BtnToolServiceBat.Location = New-Object Drawing.Point(436, 182)
-
-$toolNote = New-UiLabel -Text '«Меню service.bat» открывает штатное консольное меню пакета — на случай, если нужна функция, которой нет в GUI.' -X 12 -Y 246 -Width 720 -Height 40 -Font $script:FontSmall -Color $script:ClrMuted
-
-$pageTools.Controls.AddRange(@($toolsTitle, $toolsHint, $script:BtnToolIpset, $script:BtnToolHosts,
-    $script:BtnToolDiag, $script:BtnToolFakes, $script:BtnToolDiscord, $script:BtnToolWinDivert,
-    $script:BtnToolOpenRoot, $script:BtnToolOpenData, $script:BtnToolServiceBat, $toolNote))
-
-# --- Вкладка: Тест стратегий ----------------------------------------------
-$pageTests = New-TabPage 'Тест стратегий'
-$tabs.TabPages.Add($pageTests)
-
-$testsTitle = New-UiLabel -Text 'Тест стратегий' -X 12 -Y 8 -Width 400 -Height 30 -Font (New-Object Drawing.Font('Segoe UI', 13, [Drawing.FontStyle]::Bold)) -Color $script:ClrText
-$testsDescription = New-UiLabel -Text ("Запускает штатный тест из utils\test zapret.ps1 — тот же, что пункт 12 меню service.bat.`r`n`r`nТест по очереди запускает стратегии и проверяет доступность Discord, YouTube и других целей. Может занять несколько минут. Результаты сохраняются в папку utils\test results.`r`n`r`nПеред тестом служба zapret должна быть удалена, а winws.exe — остановлен. GUI предупредит и сделает это сам.") -X 12 -Y 46 -Width 720 -Height 120 -Font $script:FontUi -Color $script:ClrText
-
-$script:BtnRunTests = New-StyledButton -Text '▶ Запустить тест стратегий' -Width 280 -Height 46 -Kind 'primary'
-$script:BtnRunTests.Location = New-Object Drawing.Point(12, 180)
-$script:BtnTestResults = New-StyledButton -Text 'Открыть папку результатов' -Width 240 -Height 46
-$script:BtnTestResults.Location = New-Object Drawing.Point(304, 180)
-
-$quickTitle = New-UiLabel -Text 'Быстрая проверка текущего соединения' -X 12 -Y 250 -Width 500 -Height 24 -Font $script:FontUiBold -Color $script:ClrText
-$quickDescription = New-UiLabel -Text 'Проверяет Discord, YouTube, Google и Cloudflare через curl. Полезно, чтобы понять, работает ли уже запущенная стратегия.' -X 12 -Y 276 -Width 720 -Height 34 -Font $script:FontSmall -Color $script:ClrMuted
-$script:BtnQuickCheck = New-StyledButton -Text 'Проверить соединение' -Width 240 -Height 40
-$script:BtnQuickCheck.Location = New-Object Drawing.Point(12, 316)
-
-$pageTests.Controls.AddRange(@($testsTitle, $testsDescription, $script:BtnRunTests, $script:BtnTestResults,
-    $quickTitle, $quickDescription, $script:BtnQuickCheck))
-
-# --- Вкладка: Обновление ---------------------------------------------------
-$pageUpdate = New-TabPage 'Обновление'
-$tabs.TabPages.Add($pageUpdate)
-
-$updateTitle = New-UiLabel -Text 'Обновление zapret с GitHub' -X 12 -Y 8 -Width 500 -Height 30 -Font (New-Object Drawing.Font('Segoe UI', 13, [Drawing.FontStyle]::Bold)) -Color $script:ClrText
-$updateSource = New-UiLabel -Text 'Источник: github.com/Flowseal/zapret-discord-youtube · GUI / форк: Bugulmek' -X 12 -Y 38 -Width 720 -Height 20 -Font $script:FontSmall -Color $script:ClrMuted
-
-$script:LblUpdateLocal = New-UiLabel -Text 'Установленная версия: —' -X 14 -Y 68 -Width 720 -Height 20 -Font $script:FontUi -Color $script:ClrText
-$script:LblUpdateLatest = New-UiLabel -Text 'Последняя на GitHub: —' -X 14 -Y 90 -Width 720 -Height 20 -Font $script:FontUi -Color $script:ClrText
-$script:LblUpdateStatus = New-UiLabel -Text 'Проверка ещё не выполнялась' -X 14 -Y 116 -Width 720 -Height 24 -Font $script:FontUiBold -Color $script:ClrMuted
-
-$script:BtnCheckUpdates = New-StyledButton -Text 'Проверить обновления' -Width 190 -Height 36 -Kind 'primary'
-$script:BtnCheckUpdates.Location = New-Object Drawing.Point(14, 146)
-$script:BtnInstallUpdate = New-StyledButton -Text 'Скачать и установить' -Width 190 -Height 36 -Kind 'success'
-$script:BtnInstallUpdate.Location = New-Object Drawing.Point(214, 146)
-$script:BtnInstallUpdate.Enabled = $false
-
-$linkReleases = New-Object Windows.Forms.LinkLabel
-$linkReleases.Text = 'Страница релизов на GitHub'
-$linkReleases.Location = New-Object Drawing.Point(420, 154)
-$linkReleases.Size = New-Object Drawing.Size(280, 20)
-$linkReleases.Font = $script:FontUi
-$linkReleases.LinkColor = $script:ClrAccent
-
-$script:ChkStartupUpdates = New-Object Windows.Forms.CheckBox
-$script:ChkStartupUpdates.Text = 'Проверять обновления при запуске GUI'
-$script:ChkStartupUpdates.Location = New-Object Drawing.Point(14, 194)
-$script:ChkStartupUpdates.Size = New-Object Drawing.Size(500, 22)
-$script:ChkStartupUpdates.Font = $script:FontUi
-$script:ChkStartupUpdates.ForeColor = $script:ClrText
-$script:ChkStartupUpdates.Checked = $true
-
-$notesLabel = New-UiLabel -Text 'Описание релиза:' -X 14 -Y 226 -Width 300 -Height 20 -Font $script:FontUiBold -Color $script:ClrText
-
-$script:TxtReleaseNotes = New-Object Windows.Forms.TextBox
-$script:TxtReleaseNotes.Location = New-Object Drawing.Point(14, 248)
-$script:TxtReleaseNotes.Size = New-Object Drawing.Size(740, 270)
-$script:TxtReleaseNotes.Anchor = 'Top,Left,Right'
-$script:TxtReleaseNotes.Multiline = $true
-$script:TxtReleaseNotes.ReadOnly = $true
-$script:TxtReleaseNotes.ScrollBars = 'Vertical'
-$script:TxtReleaseNotes.BackColor = [Drawing.Color]::White
-$script:TxtReleaseNotes.ForeColor = $script:ClrText
-$script:TxtReleaseNotes.Font = $script:FontUi
-$script:TxtReleaseNotes.Text = 'Нажмите «Проверить обновления», чтобы получить информацию с GitHub.'
-
-$pageUpdate.Controls.AddRange(@($updateTitle, $updateSource, $script:LblUpdateLocal, $script:LblUpdateLatest,
-    $script:LblUpdateStatus, $script:BtnCheckUpdates, $script:BtnInstallUpdate, $linkReleases,
-    $script:ChkStartupUpdates, $notesLabel, $script:TxtReleaseNotes))
 # ---------------------------------------------------------------------------
 #  Вспомогательные действия интерфейса
 # ---------------------------------------------------------------------------
@@ -2355,7 +2763,7 @@ function Choose-ZapretFolder {
     $dialog = New-Object Windows.Forms.FolderBrowserDialog
     $dialog.Description = 'Укажите папку zapret (в ней должны быть service.bat и bin\winws.exe)'
     $dialog.ShowNewFolderButton = $false
-    if ($dialog.ShowDialog($script:Form) -ne [Windows.Forms.DialogResult]::OK) { return }
+    if ($dialog.ShowDialog() -ne [Windows.Forms.DialogResult]::OK) { return }
 
     $candidate = $dialog.SelectedPath
     if (-not (Test-Path -LiteralPath (Join-Path $candidate 'bin\winws.exe'))) {
@@ -2372,10 +2780,10 @@ function Choose-ZapretFolder {
     Load-SettingsIntoUi
     Update-AllStatus
     $script:LblUpdateStatus.Text = 'Проверка ещё не выполнялась'
-    $script:LblUpdateStatus.ForeColor = $script:ClrMuted
+    $script:LblUpdateStatus.Foreground = $script:BrMuted
     $script:LatestRelease = $null
     $script:UpdateAvailable = $false
-    $script:BtnInstallUpdate.Enabled = $false
+    $script:BtnInstallUpdate.IsEnabled = $false
     Write-UiLog ('Папка zapret изменена: ' + $script:ZapretRoot) 'Green'
 }
 
@@ -2392,28 +2800,75 @@ function Invoke-UiSafe {
 }
 
 # ---------------------------------------------------------------------------
+#  Навигация
+# ---------------------------------------------------------------------------
+$script:NavPages = @(
+    (Get-Ui 'PageService'),
+    (Get-Ui 'PageSettings'),
+    (Get-Ui 'PageTools'),
+    (Get-Ui 'PageTests'),
+    (Get-Ui 'PageUpdate')
+)
+$script:NavButtons = @(
+    (Get-Ui 'NavService'),
+    (Get-Ui 'NavSettings'),
+    (Get-Ui 'NavTools'),
+    (Get-Ui 'NavTests'),
+    (Get-Ui 'NavUpdate')
+)
+
+function Show-NavPage {
+    param([int]$Index)
+    for ($i = 0; $i -lt $script:NavPages.Count; $i++) {
+        if ($i -eq $Index) {
+            $script:NavPages[$i].Visibility = [Windows.Visibility]::Visible
+        } else {
+            $script:NavPages[$i].Visibility = [Windows.Visibility]::Collapsed
+        }
+    }
+}
+
+for ($i = 0; $i -lt $script:NavButtons.Count; $i++) {
+    $navIndex = $i
+    $script:NavButtons[$i].Add_Checked({ Show-NavPage $navIndex }.GetNewClosure())
+}
+
+# ---------------------------------------------------------------------------
+#  События: окно
+# ---------------------------------------------------------------------------
+(Get-Ui 'BtnMinimize').Add_Click({
+    $script:Window.WindowState = [Windows.WindowState]::Minimized
+})
+(Get-Ui 'BtnClose').Add_Click({
+    $script:Window.Close()
+})
+(Get-Ui 'HeaderBar').Add_MouseLeftButtonDown({
+    try { $script:Window.DragMove() } catch { }
+})
+
+# ---------------------------------------------------------------------------
 #  События: стратегии
 # ---------------------------------------------------------------------------
-$script:BtnStart.Add_Click({
+(Get-Ui 'BtnStart').Add_Click({
     Invoke-UiSafe { Start-SelectedStrategyAction }
 })
-$script:BtnStop.Add_Click({
+(Get-Ui 'BtnStop').Add_Click({
     Invoke-UiSafe { Stop-ZapretAction }
 })
-$script:BtnInstall.Add_Click({
+(Get-Ui 'BtnInstall').Add_Click({
     Invoke-UiSafe { Install-ServiceAction }
 })
-$script:BtnRemove.Add_Click({
+(Get-Ui 'BtnRemove').Add_Click({
     Invoke-UiSafe { Remove-ServiceAction }
 })
 
-$script:LstStrategies.Add_SelectedIndexChanged({
+$script:LstStrategies.Add_SelectionChanged({
     if ($script:LstStrategies.SelectedItem) {
         $script:Config.SelectedStrategy = [string]$script:LstStrategies.SelectedItem
         Save-Config
     }
 })
-$script:LstStrategies.Add_DoubleClick({
+$script:LstStrategies.Add_MouseDoubleClick({
     Invoke-UiSafe { Start-SelectedStrategyAction }
 })
 
@@ -2423,54 +2878,54 @@ $script:LstStrategies.Add_DoubleClick({
 $script:BtnRestartService.Add_Click({
     Invoke-UiSafe { Restart-ServiceAction }
 })
-$script:BtnServiceBat.Add_Click({
+(Get-Ui 'BtnServiceBat').Add_Click({
     Invoke-UiSafe { Open-ServiceBatMenu }
 })
-$script:BtnOpenRoot.Add_Click({
+(Get-Ui 'BtnOpenRoot').Add_Click({
     Invoke-UiSafe { Open-Folder $script:ZapretRoot }
 })
-$script:ChkAutostart.Add_CheckedChanged({
+$script:ChkAutostart.Add_Click({
     Invoke-UiSafe { Set-AutostartAction }
 })
 
 # ---------------------------------------------------------------------------
 #  События: настройки
 # ---------------------------------------------------------------------------
-$script:BtnApplyGame.Add_Click({
+(Get-Ui 'BtnApplyGame').Add_Click({
     Invoke-UiSafe { Apply-GameFilterAction }
 })
-$script:BtnApplyIpset.Add_Click({
+(Get-Ui 'BtnApplyIpset').Add_Click({
     Invoke-UiSafe { Apply-IpsetAction }
 })
-$script:BtnUpdateIpset.Add_Click({
+(Get-Ui 'BtnUpdateIpset').Add_Click({
     Invoke-UiSafe { Update-IpsetAction }
 })
-$script:ChkBatUpdates.Add_CheckedChanged({
+(Get-Ui 'ChkBatUpdates').Add_Click({
     Invoke-UiSafe { Set-BatUpdatesAction }
 })
-$script:BtnListGeneral.Add_Click({
+(Get-Ui 'BtnListGeneral').Add_Click({
     Invoke-UiSafe { Open-UserList 'list-general-user.txt' }
 })
-$script:BtnListExclude.Add_Click({
+(Get-Ui 'BtnListExclude').Add_Click({
     Invoke-UiSafe { Open-UserList 'list-exclude-user.txt' }
 })
-$script:BtnListIpset.Add_Click({
+(Get-Ui 'BtnListIpset').Add_Click({
     Invoke-UiSafe { Open-UserList 'ipset-exclude-user.txt' }
 })
-$script:BtnListFolder.Add_Click({
+(Get-Ui 'BtnListFolder').Add_Click({
     Invoke-UiSafe { Open-Folder (Join-Path $script:ZapretRoot 'lists') }
 })
 
 # ---------------------------------------------------------------------------
 #  События: инструменты
 # ---------------------------------------------------------------------------
-$script:BtnToolIpset.Add_Click({
+(Get-Ui 'BtnToolIpset').Add_Click({
     Invoke-UiSafe { Update-IpsetAction }
 })
-$script:BtnToolHosts.Add_Click({
+(Get-Ui 'BtnToolHosts').Add_Click({
     Invoke-UiSafe { Update-HostsAction }
 })
-$script:BtnToolDiag.Add_Click({
+(Get-Ui 'BtnToolDiag').Add_Click({
     try {
         Set-BusyStatus 'Диагностика...'
         Run-DiagnosticsAction
@@ -2482,17 +2937,17 @@ $script:BtnToolDiag.Add_Click({
         Update-AllStatus
     }
 })
-$script:BtnToolFakes.Add_Click({
+(Get-Ui 'BtnToolFakes').Add_Click({
     Invoke-UiSafe { Open-FakesDialog }
 })
-$script:BtnToolDiscord.Add_Click({
+(Get-Ui 'BtnToolDiscord').Add_Click({
     Invoke-UiSafe {
         if (Confirm-Ui 'Очистить кэш Discord? Приложения Discord будут закрыты.' 'Очистка кэша Discord') {
             Clear-DiscordCacheInternal
         }
     }
 })
-$script:BtnToolWinDivert.Add_Click({
+(Get-Ui 'BtnToolWinDivert').Add_Click({
     Invoke-UiSafe {
         if (Confirm-Ui "Остановить и удалить службы WinDivert / WinDivert14?`n`nЭто помогает, если zapret не запускается из-за конфликта драйвера." 'WinDivert') {
             Remove-WinDivertLeftovers
@@ -2500,105 +2955,83 @@ $script:BtnToolWinDivert.Add_Click({
         }
     }
 })
-$script:BtnToolOpenRoot.Add_Click({
+(Get-Ui 'BtnToolOpenRoot').Add_Click({
     Invoke-UiSafe { Open-Folder $script:ZapretRoot }
 })
-$script:BtnToolOpenData.Add_Click({
+(Get-Ui 'BtnToolOpenData').Add_Click({
     Invoke-UiSafe { Open-DataFolder }
 })
-$script:BtnToolServiceBat.Add_Click({
+(Get-Ui 'BtnToolServiceBat').Add_Click({
     Invoke-UiSafe { Open-ServiceBatMenu }
+})
+(Get-Ui 'BtnChooseFolder').Add_Click({
+    Invoke-UiSafe { Choose-ZapretFolder }
+})
+(Get-Ui 'BtnReleases').Add_Click({
+    try { Start-Process -FilePath $script:ZC_ReleasesPage | Out-Null } catch { }
+})
+(Get-Ui 'BtnAbout').Add_Click({
+    Invoke-UiSafe { Show-About }
+})
+(Get-Ui 'BtnAboutFooter').Add_Click({
+    Invoke-UiSafe { Show-About }
 })
 
 # ---------------------------------------------------------------------------
 #  События: тесты
 # ---------------------------------------------------------------------------
-$script:BtnRunTests.Add_Click({
+(Get-Ui 'BtnRunTests').Add_Click({
     Invoke-UiSafe { Run-StrategyTestsAction }
 })
-$script:BtnTestResults.Add_Click({
+(Get-Ui 'BtnTestResults').Add_Click({
     Invoke-UiSafe { Open-TestResultsFolder }
 })
-$script:BtnQuickCheck.Add_Click({
+(Get-Ui 'BtnQuickCheck').Add_Click({
     Invoke-UiSafe { Quick-CheckAction }
 })
 
 # ---------------------------------------------------------------------------
 #  События: обновление
 # ---------------------------------------------------------------------------
-$script:BtnCheckUpdates.Add_Click({
+(Get-Ui 'BtnCheckUpdates').Add_Click({
     Invoke-UiSafe { Check-UpdatesAction }
 })
 $script:BtnInstallUpdate.Add_Click({
     Invoke-UiSafe { Install-UpdateAction }
 })
-$script:ChkStartupUpdates.Add_CheckedChanged({
-    $script:Config.CheckUpdatesOnStart = [bool]$script:ChkStartupUpdates.Checked
+$script:ChkStartupUpdates.Add_Click({
+    $script:Config.CheckUpdatesOnStart = ($script:ChkStartupUpdates.IsChecked -eq $true)
     Save-Config
 })
-$linkReleases.Add_LinkClicked({
+(Get-Ui 'LinkReleases').Add_Click({
     try { Start-Process -FilePath $script:ZC_ReleasesPage | Out-Null } catch { }
 })
 
 # ---------------------------------------------------------------------------
 #  События: журнал
 # ---------------------------------------------------------------------------
-$script:BtnClearLog.Add_Click({
-    $script:RtbLog.Clear()
+(Get-Ui 'BtnClearLog').Add_Click({
+    $script:RtbLog.Document.Blocks.Clear()
 })
-$script:BtnSaveLog.Add_Click({
+(Get-Ui 'BtnSaveLog').Add_Click({
     try {
-        $dialog = New-Object Windows.Forms.SaveFileDialog
+        $dialog = New-Object Microsoft.Win32.SaveFileDialog
         $dialog.Filter = 'Текстовый файл (*.txt)|*.txt|Все файлы (*.*)|*.*'
         $dialog.FileName = 'zapret-control-log.txt'
-        if ($dialog.ShowDialog($script:Form) -eq [Windows.Forms.DialogResult]::OK) {
-            [IO.File]::WriteAllText($dialog.FileName, $script:RtbLog.Text, (New-Object Text.UTF8Encoding($true)))
+        if ($dialog.ShowDialog($script:Window)) {
+            [IO.File]::WriteAllText($dialog.FileName, (Get-LogText), (New-Object Text.UTF8Encoding($true)))
             Write-UiLog ('Журнал сохранён: ' + $dialog.FileName) 'Green'
         }
     } catch { }
 })
-$script:BtnOpenData.Add_Click({
+(Get-Ui 'BtnOpenData').Add_Click({
     Invoke-UiSafe { Open-DataFolder }
-})
-
-# ---------------------------------------------------------------------------
-#  События: меню
-# ---------------------------------------------------------------------------
-$script:MiChooseFolder.Add_Click({
-    Invoke-UiSafe { Choose-ZapretFolder }
-})
-$script:MiOpenRoot.Add_Click({
-    Invoke-UiSafe { Open-Folder $script:ZapretRoot }
-})
-$script:MiExit.Add_Click({
-    $script:Form.Close()
-})
-$script:MiInstallService.Add_Click({
-    Invoke-UiSafe { Install-ServiceAction }
-})
-$script:MiRemoveService.Add_Click({
-    Invoke-UiSafe { Remove-ServiceAction }
-})
-$script:MiRestartService.Add_Click({
-    Invoke-UiSafe { Restart-ServiceAction }
-})
-$script:MiDiagnostics.Add_Click({
-    Invoke-UiSafe { Run-DiagnosticsAction }
-})
-$script:MiTests.Add_Click({
-    Invoke-UiSafe { Run-StrategyTestsAction }
-})
-$script:MiAbout.Add_Click({
-    Invoke-UiSafe { Show-About }
-})
-$script:MiGithub.Add_Click({
-    try { Start-Process -FilePath $script:ZC_ReleasesPage | Out-Null } catch { }
 })
 
 # ---------------------------------------------------------------------------
 #  Начальная инициализация
 # ---------------------------------------------------------------------------
-$script:ChkStartupUpdates.Checked = [bool]$script:Config.CheckUpdatesOnStart
+$script:ChkStartupUpdates.IsChecked = [bool]$script:Config.CheckUpdatesOnStart
 
 Refresh-StrategyList
 Load-SettingsIntoUi
@@ -2607,7 +3040,11 @@ Update-AllStatus
 Write-UiLog ('Zapret Control ' + $script:ZC_AppVersion + ' запущен') 'Cyan'
 Write-UiLog ('Папка zapret: ' + $script:ZapretRoot) 'Gray'
 Write-UiLog ('Версия пакета: ' + (Get-LocalZapretVersion -Root $script:ZapretRoot)) 'Gray'
-Write-UiLog 'Права администратора: да' 'Green'
+if (Test-IsAdmin) {
+    Write-UiLog 'Права администратора: да' 'Green'
+} else {
+    Write-UiLog 'Права администратора: нет' 'Yellow'
+}
 if (@(Get-WinwsProcesses).Count -gt 0) {
     Write-UiLog 'winws.exe уже запущен.' 'Green'
 }
@@ -2615,9 +3052,12 @@ if (Get-Service -Name 'zapret' -ErrorAction SilentlyContinue) {
     Write-UiLog 'Служба zapret установлена.' 'Gray'
 }
 
+$script:App = New-Object Windows.Application
+$script:App.ShutdownMode = [Windows.ShutdownMode]::OnMainWindowClose
+
 # Главный таймер: статус + журнал winws
-$script:MainTimer = New-Object Windows.Forms.Timer
-$script:MainTimer.Interval = 2000
+$script:MainTimer = New-Object Windows.Threading.DispatcherTimer
+$script:MainTimer.Interval = [TimeSpan]::FromSeconds(2)
 $script:MainTimer.Add_Tick({
     try { Update-AllStatus } catch { }
     try { Read-WinwsLog } catch { }
@@ -2625,8 +3065,8 @@ $script:MainTimer.Add_Tick({
 $script:MainTimer.Start()
 
 # Проверка обновлений при запуске (один раз, после появления окна)
-$script:StartupTimer = New-Object Windows.Forms.Timer
-$script:StartupTimer.Interval = 900
+$script:StartupTimer = New-Object Windows.Threading.DispatcherTimer
+$script:StartupTimer.Interval = [TimeSpan]::FromMilliseconds(900)
 $script:StartupTimer.Add_Tick({
     $script:StartupTimer.Stop()
     try {
@@ -2635,24 +3075,25 @@ $script:StartupTimer.Add_Tick({
 })
 $script:StartupTimer.Start()
 
-$script:Form.Add_FormClosing({
+$script:Window.Add_Closing({
     try { $script:MainTimer.Stop() } catch { }
+    try { $script:StartupTimer.Stop() } catch { }
     Save-Config
 })
 
 if ($Preview) {
-    $script:PreviewTimer = New-Object Windows.Forms.Timer
-    $script:PreviewTimer.Interval = [Math]::Max(500, $PreviewSeconds * 1000)
+    $script:PreviewTimer = New-Object Windows.Threading.DispatcherTimer
+    $script:PreviewTimer.Interval = [TimeSpan]::FromMilliseconds([Math]::Max(500, $PreviewSeconds * 1000))
     $script:PreviewTimer.Add_Tick({
         $script:PreviewTimer.Stop()
-        $script:Form.Close()
+        $script:Window.Close()
     })
     $script:PreviewTimer.Start()
     Write-Output 'UI PREVIEW STARTED'
 }
 
 try {
-    [Windows.Forms.Application]::Run($script:Form)
+    [void]$script:App.Run($script:Window)
 } catch {
     Show-UiError ('Критическая ошибка интерфейса:' + "`n" + $_.Exception.Message)
 } finally {

@@ -6,7 +6,7 @@
 # ============================================================================
 
 $script:ZC_AppName      = 'Zapret Control'
-$script:ZC_AppVersion   = '1.0.0'
+$script:ZC_AppVersion   = '1.1.0'
 $script:ZC_UpstreamRepo = 'Flowseal/zapret-discord-youtube'
 $script:ZC_ReleasesApi  = 'https://api.github.com/repos/Flowseal/zapret-discord-youtube/releases/latest'
 $script:ZC_ReleasesPage = 'https://github.com/Flowseal/zapret-discord-youtube/releases/latest'

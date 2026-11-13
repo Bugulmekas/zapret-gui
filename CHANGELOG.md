@@ -59,5 +59,5 @@
 - Устойчивое создание службы: `New-Service` с запасным вариантом через `sc.exe`.
 - Экономичное обновление статуса: IPSet и версия пакета не перечитываются целиком каждые 2 секунды.
 
-[1.1.0]: https://github.com/lordsamper9-cyber/zapret-gui/releases/tag/v1.1.0
-[1.0.0]: https://github.com/lordsamper9-cyber/zapret-gui/releases/tag/v1.0.0
+[1.1.0]: https://github.com/Bugulmekas/zapret-gui/releases/tag/v1.1.0
+[1.0.0]: https://github.com/Bugulmekas/zapret-gui/releases/tag/v1.0.0

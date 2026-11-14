@@ -39,12 +39,6 @@
 - **Платформа:** Windows 10/11, PowerShell 5.1, .NET Framework 4.8 (входит в Windows)
 - **Права:** требуются администратор (запрашиваются автоматически)
 
-<p align="center">
-  <a href="https://github.com/Bugulmekas/zapret-gui/releases/latest">
-    <img src="https://img.shields.io/badge/%E2%AC%87_%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C-2.0.0-FF2BD6?style=for-the-badge&labelColor=0D1117&logo=github&logoColor=white" alt="Скачать">
-  </a>
-</p>
-
 ---
 
 ## Возможности

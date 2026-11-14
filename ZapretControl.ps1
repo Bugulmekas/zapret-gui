@@ -3136,15 +3136,27 @@ function Install-GuiUpdateAction {
     if (-not (Confirm-Ui ("Скачать и установить Zapret Control $($release.Tag)?`n`nСкрипты будут заменены, настройки сохранятся.`nПосле установки приложение перезапустится.") 'Обновление GUI')) { return }
 
     $workDir = Join-Path $env:TEMP ('zapret-gui-update-' + [guid]::NewGuid().ToString('N'))
+    $files = @('ZapretControl.ps1', 'ZapretCommon.ps1', 'ZapretControl.bat')
+    $backupDir = $null
+    $tempFiles = New-Object System.Collections.ArrayList
 
     try {
         New-Item -ItemType Directory -Path $workDir -Force | Out-Null
 
-        $zipPath = Join-Path $workDir $release.AssetName
+        # Без хеша от GitHub обновление не выполняем: иначе целостность не проверяется.
+        $sha256 = [string]$release.AssetSha256
+        if ([string]::IsNullOrWhiteSpace($sha256)) {
+            throw 'GitHub не вернул SHA256 ассета — обновление отменено (нет проверки целостности).'
+        }
+        $safeName = Get-SafeAssetName -Name $release.AssetName
+        if (-not $safeName) { throw ('Недопустимое имя ассета: ' + $release.AssetName) }
+
+        $zipPath = Join-Path $workDir $safeName
         Set-BusyStatus 'Скачивание GUI...'
         Write-UiLog ('Скачивание GUI: ' + $release.AssetUrl) 'Cyan'
-        if (-not (Invoke-CurlDownload -Url $release.AssetUrl -OutFile $zipPath -TimeoutSec 600)) {
-            throw 'Не удалось скачать архив GUI.'
+        if (-not (Invoke-CurlDownload -Url $release.AssetUrl -OutFile $zipPath -TimeoutSec 600 `
+                    -ExpectedSha256 $sha256)) {
+            throw ('Не удалось скачать или проверить архив GUI: ' + $script:ZC_LastDownloadError)
         }
 
         Set-BusyStatus 'Распаковка архива...'
@@ -3170,7 +3182,6 @@ function Install-GuiUpdateAction {
         $backupDir = Join-Path $script:DataDir ('backup-' + $script:ZC_AppVersion)
         New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
 
-        $files = @('ZapretControl.ps1', 'ZapretCommon.ps1', 'ZapretControl.bat')
         foreach ($name in $files) {
             $current = Join-Path $script:AppDir $name
             if (Test-Path -LiteralPath $current) {
@@ -3181,8 +3192,19 @@ function Install-GuiUpdateAction {
         Set-BusyStatus 'Установка GUI...'
         foreach ($name in $files) {
             $candidate = Join-Path $sourceDir $name
-            if (Test-Path -LiteralPath $candidate) {
-                Copy-Item -LiteralPath $candidate -Destination (Join-Path $script:AppDir $name) -Force
+            if (-not (Test-Path -LiteralPath $candidate)) { continue }
+            $dest = Join-Path $script:AppDir $name
+            $tmp = Join-Path $script:AppDir ('.' + $name + '.new')
+            [void]$tempFiles.Add($tmp)
+
+            # Сначала новый файл целиком пишется рядом с целевым...
+            Copy-Item -LiteralPath $candidate -Destination $tmp -Force
+            # ...затем подменяет целевой в пределах тома (атомарно).
+            if (Test-Path -LiteralPath $dest) {
+                try { [IO.File]::Replace($tmp, $dest, $null) }
+                catch { Move-Item -LiteralPath $tmp -Destination $dest -Force }
+            } else {
+                Move-Item -LiteralPath $tmp -Destination $dest -Force
             }
         }
 
@@ -3205,10 +3227,32 @@ function Install-GuiUpdateAction {
         })
         $script:RestartTimer.Start()
     } catch {
-        Write-UiLog ('Ошибка обновления GUI: ' + $_.Exception.Message) 'Red'
-        Show-UiError $_.Exception.Message 'Обновление GUI'
+        $errorMessage = $_.Exception.Message
+
+        # Откат: возвращаем рабочие файлы из резервной копии.
+        $restored = $false
+        if ($backupDir) {
+            foreach ($name in $files) {
+                $backup = Join-Path $backupDir $name
+                if (Test-Path -LiteralPath $backup) {
+                    try {
+                        Copy-Item -LiteralPath $backup -Destination (Join-Path $script:AppDir $name) -Force
+                        $restored = $true
+                    } catch { }
+                }
+            }
+        }
+
+        $suffix = if ($restored) { ' (выполнен откат)' } else { '' }
+        Write-UiLog ('Ошибка обновления GUI: ' + $errorMessage + $suffix) 'Red'
+        Show-UiError ($errorMessage + $suffix) 'Обновление GUI'
         Set-BusyStatus 'Ошибка обновления GUI'
     } finally {
+        foreach ($tmp in $tempFiles) {
+            if ($tmp -and (Test-Path -LiteralPath $tmp)) {
+                Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
+            }
+        }
         if (Test-Path -LiteralPath $workDir) {
             Remove-Item -LiteralPath $workDir -Recurse -Force -ErrorAction SilentlyContinue
         }
@@ -3238,11 +3282,15 @@ function Install-UpdateAction {
     try {
         New-Item -ItemType Directory -Path $workDir -Force | Out-Null
 
-        $zipPath = Join-Path $workDir $release.AssetName
+        $safeName = Get-SafeAssetName -Name $release.AssetName
+        if (-not $safeName) { throw ('Недопустимое имя ассета: ' + $release.AssetName) }
+
+        $zipPath = Join-Path $workDir $safeName
         Set-BusyStatus 'Скачивание обновления...'
         Write-UiLog ('Скачивание: ' + $release.AssetUrl) 'Cyan'
-        if (-not (Invoke-CurlDownload -Url $release.AssetUrl -OutFile $zipPath -TimeoutSec 600)) {
-            throw 'Не удалось скачать архив обновления.'
+        if (-not (Invoke-CurlDownload -Url $release.AssetUrl -OutFile $zipPath -TimeoutSec 600 `
+                    -ExpectedSha256 ([string]$release.AssetSha256))) {
+            throw ('Не удалось скачать или проверить архив обновления: ' + $script:ZC_LastDownloadError)
         }
 
         Set-BusyStatus 'Распаковка архива...'
@@ -3257,7 +3305,7 @@ function Install-UpdateAction {
         $sourceRoot = $serviceBat.DirectoryName
 
         $parentDir = Split-Path -Parent $oldRoot
-        $targetDir = Join-Path $parentDir ([IO.Path]::GetFileNameWithoutExtension($release.AssetName))
+        $targetDir = Join-Path $parentDir ([IO.Path]::GetFileNameWithoutExtension($safeName))
         if ($targetDir.TrimEnd('\') -ieq $oldRoot.TrimEnd('\')) {
             $targetDir = $oldRoot.TrimEnd('\') + '-update-' + $release.Tag
         }

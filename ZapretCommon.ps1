@@ -806,6 +806,33 @@ function Invoke-CurlDownload {
     return $true
 }
 
+function Get-SafeAssetName {
+    # Имя ассета из GitHub API — недоверенные данные: берём только базовое имя
+    # без каталогов, точек-обходов и посторонних расширений.
+    param([string]$Name)
+
+    if ([string]::IsNullOrWhiteSpace($Name)) { return $null }
+    $leaf = [IO.Path]::GetFileName($Name)
+    if ([string]::IsNullOrWhiteSpace($leaf)) { return $null }
+    if ($leaf -ne $Name) { return $null }                        # было '..\..\x.zip' или 'sub\x.zip'
+    if ($leaf.Length -gt 100) { return $null }
+    if ($leaf -notmatch '^[A-Za-z0-9._-]+$') { return $null }
+    if ($leaf -match '^\.+$') { return $null }
+    if (-not $leaf.EndsWith('.zip', [StringComparison]::OrdinalIgnoreCase)) { return $null }
+    return $leaf
+}
+
+function Get-AssetSha256 {
+    # GitHub отдаёт digest вида "sha256:<hex>"; возвращаем bare-hex в верхнем регистре.
+    param($Asset)
+
+    if (-not $Asset) { return $null }
+    $digest = [string]$Asset.digest
+    if ([string]::IsNullOrWhiteSpace($digest)) { return $null }
+    if ($digest -match '^sha256:(?<hex>[0-9a-fA-F]{64})$') { return $Matches['hex'].ToUpperInvariant() }
+    return $null
+}
+
 function Get-LatestZapretRelease {
     $raw = Invoke-CurlText -Url $script:ZC_ReleasesApi -TimeoutSec 20
     if ([string]::IsNullOrWhiteSpace($raw)) { return $null }
@@ -816,9 +843,14 @@ function Get-LatestZapretRelease {
     $asset = @($json.assets) | Where-Object { $_.name -like '*.zip' } | Select-Object -First 1
     $assetName = $null
     $assetUrl = $null
+    $assetSha256 = $null
     if ($asset) {
-        $assetName = [string]$asset.name
-        $assetUrl = [string]$asset.browser_download_url
+        # Невалидное имя — релиз без ассета: качать по такому пути нельзя.
+        $assetName = Get-SafeAssetName -Name ([string]$asset.name)
+        if ($assetName) {
+            $assetUrl = [string]$asset.browser_download_url
+            $assetSha256 = Get-AssetSha256 -Asset $asset
+        }
     }
 
     return [pscustomobject]@{
@@ -828,6 +860,7 @@ function Get-LatestZapretRelease {
         HtmlUrl     = [string]$json.html_url
         AssetName   = $assetName
         AssetUrl    = $assetUrl
+        AssetSha256 = $assetSha256
         PublishedAt = [string]$json.published_at
     }
 }
@@ -842,9 +875,14 @@ function Get-LatestGuiRelease {
     $asset = @($json.assets) | Where-Object { $_.name -like 'zapret-gui-*.zip' } | Select-Object -First 1
     $assetName = $null
     $assetUrl = $null
+    $assetSha256 = $null
     if ($asset) {
-        $assetName = [string]$asset.name
-        $assetUrl = [string]$asset.browser_download_url
+        # Невалидное имя — релиз без ассета: качать по такому пути нельзя.
+        $assetName = Get-SafeAssetName -Name ([string]$asset.name)
+        if ($assetName) {
+            $assetUrl = [string]$asset.browser_download_url
+            $assetSha256 = Get-AssetSha256 -Asset $asset
+        }
     }
 
     return [pscustomobject]@{
@@ -854,6 +892,7 @@ function Get-LatestGuiRelease {
         HtmlUrl     = [string]$json.html_url
         AssetName   = $assetName
         AssetUrl    = $assetUrl
+        AssetSha256 = $assetSha256
         PublishedAt = [string]$json.published_at
     }
 }

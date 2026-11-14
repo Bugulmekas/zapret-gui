@@ -167,13 +167,13 @@ function Get-Brush {
 $script:Themes = @{
     light = @{
         Canvas = '#F4F6F9'; Surface = '#FFFFFF'; Ink = '#141A22'; Body = '#3D4856'
-        Muted = '#6C7887'; Hairline = '#E4E8EE'; Field = '#EEF2F7'; FieldHover = '#E5EAF1'
+        Muted = '#647080'; Hairline = '#E4E8EE'; Field = '#EEF2F7'; FieldHover = '#E5EAF1'
         Accent = '#2E6BE6'; AccentText = '#FFFFFF'; Danger = '#D92D20'; DangerSoft = '#FDECEA'
         WindowBorder = '#DDE3EA'; NavActive = '#EAF0FA'; CheckBorder = '#C3CBD6'; CheckHover = '#7C8896'
         ListHover = '#F4F7FB'; FocusBorder = '#2E6BE6'; Selection = '#C9DCFB'; LogBg = '#FAFBFD'
         CardBorder = '#E4E8EE'; ListSelected = '#E8F0FB'; MenuItemHover = '#EFF3F8'; Thumb = '#C3CBD6'; NavActiveText = '#141A22'
         Green = '#128A4B'; Red = '#D92D20'; Orange = '#B25E09'
-        LogText = '#3D4856'; LogGray = '#7C8896'; LogCyan = '#0B6E99'; LogBlue = '#1E56C8'
+        LogText = '#3D4856'; LogGray = '#647080'; LogCyan = '#0B6E99'; LogBlue = '#1E56C8'
         PillOk = '#E6F6EC'; PillBad = '#FDECEA'; PillOkDot = '#22C55E'; PillBadDot = '#EF4444'
         PillWarn = '#FFF3DF'; PillWarnDot = '#F59E0B'; Sidebar = '#FBFCFE'
     }
@@ -318,21 +318,15 @@ function Apply-Theme {
     $script:CurrentPalette = $palette
     Set-ThemeBrushVars $palette
 
-    # Лейблы, которым код задаёт Foreground напрямую, перекрашиваем при смене темы.
-    if ($script:LblUpdateStatus) { $script:LblUpdateStatus.Foreground = $script:BrMuted }
-    if ($script:LblGuiStatus)    { $script:LblGuiStatus.Foreground    = $script:BrMuted }
-
+    # Кисти, которые код задаёт напрямую, перекрашиваем в одном месте.
     if ($script:Window) {
         $themeButtons = @{ light = 'ThemeLight'; dark = 'ThemeDark'; neon = 'ThemeNeon' }
         foreach ($key in $themeButtons.Keys) {
             $button = $script:Window.FindName($themeButtons[$key])
             if ($button) { $button.IsChecked = ($key -eq $Name) }
         }
-        if (Get-Command -Name Update-LogTheme -ErrorAction SilentlyContinue) {
-            Update-LogTheme $oldPalette
-        }
-        if (Get-Command -Name Set-AdminPill -ErrorAction SilentlyContinue) {
-            Set-AdminPill ([bool](Test-IsAdmin))
+        if (Get-Command -Name Update-ThemeSurfaces -ErrorAction SilentlyContinue) {
+            Update-ThemeSurfaces -PreviousPalette $oldPalette
         }
         if (Get-Command -Name Update-AllStatus -ErrorAction SilentlyContinue) {
             try { Update-AllStatus } catch { }
@@ -990,22 +984,24 @@ $windowXaml = @'
       <Border Grid.Row="0" Height="1" VerticalAlignment="Bottom" Background="{DynamicResource HeaderLineBrush}"/>
 
       <!-- Рабочая область -->
-      <Grid Grid.Row="1">
+      <Grid Grid.Row="1" ClipToBounds="True">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="216"/>
           <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
         <!-- Боковая навигация -->
-        <Border Grid.Column="0" Background="{DynamicResource Sidebar}"
+        <Border Grid.Column="0" Background="{DynamicResource Sidebar}" ClipToBounds="True"
                 BorderBrush="{DynamicResource Hairline}" BorderThickness="0,0,1,0">
           <Grid Margin="12,16,12,12">
             <Grid.RowDefinitions>
-              <RowDefinition Height="*"/>
+              <RowDefinition Height="*" MinHeight="0"/>
               <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <StackPanel Grid.Row="0">
+            <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled" MinHeight="0">
+              <StackPanel>
               <RadioButton x:Name="NavService" AutomationProperties.Name="Обзор" GroupName="Nav" IsChecked="True"
                            Style="{StaticResource ZcSideNav}" Tag="0">
                 <StackPanel Orientation="Horizontal">
@@ -1037,7 +1033,9 @@ $windowXaml = @'
                   <TextBlock Text="Обновление" Margin="10,0,0,0" VerticalAlignment="Center"/>
                 </StackPanel>
               </RadioButton>
+
             </StackPanel>
+            </ScrollViewer>
 
             <StackPanel Grid.Row="1">
               <Border Height="1" Background="{DynamicResource Hairline}" Margin="4,0,4,10"/>
@@ -1056,7 +1054,8 @@ $windowXaml = @'
             <RowDefinition Height="Auto"/>
           </Grid.RowDefinitions>
 
-          <ScrollViewer x:Name="PageScroll" Grid.Row="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <ScrollViewer x:Name="PageScroll" Grid.Row="0" MinHeight="0"
+                        VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <Grid MaxWidth="980" HorizontalAlignment="Stretch" Margin="0,0,0,6">
 
               <!-- Обзор -->
@@ -1405,30 +1404,33 @@ $windowXaml = @'
           </ScrollViewer>
 
           <!-- Журнал -->
-          <Border Grid.Row="1" Style="{StaticResource ZcCard}" Padding="0" Margin="0,10,0,14">
+          <Border Grid.Row="1" Style="{StaticResource ZcCard}" Padding="0" Margin="0,10,0,14"
+                  MaxWidth="980" MinHeight="0" ClipToBounds="True">
             <Grid HorizontalAlignment="Stretch">
               <Grid.RowDefinitions>
                 <RowDefinition Height="42"/>
                 <RowDefinition Height="1"/>
-                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto" MinHeight="0"/>
               </Grid.RowDefinitions>
-              <Grid Grid.Row="0" Margin="16,0,12,0">
+              <Grid Grid.Row="0" Margin="16,0,12,0" ClipToBounds="True">
                 <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="*" MinWidth="0"/>
                   <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Text="Журнал" Style="{StaticResource ZcCardTitle}"
-                           VerticalAlignment="Center"/>
+                           VerticalAlignment="Center" Margin="0,0,14,0"
+                           TextTrimming="CharacterEllipsis"/>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                   <CheckBox x:Name="ChkAutoScroll" Content="Автопрокрутка" Style="{StaticResource ZcCheck}"
-                            FontSize="11.5" Margin="0,0,12,0" IsChecked="True"/>
+                            FontSize="11.5" Margin="0,0,14,0" VerticalAlignment="Center" IsChecked="True"/>
                   <Button x:Name="BtnSaveLog" Content="Сохранить" Style="{StaticResource ZcSmall}" Margin="0,0,6,0"/>
                   <Button x:Name="BtnClearLog" Content="Очистить" Style="{StaticResource ZcSmall}" Margin="0,0,6,0"/>
                   <Button x:Name="BtnToggleLog" Content="Развернуть" Style="{StaticResource ZcSmall}"/>
                 </StackPanel>
               </Grid>
               <Border Grid.Row="1" Background="{DynamicResource Hairline}"/>
-              <RichTextBox x:Name="RtbLog" Grid.Row="2" Height="190" Visibility="Collapsed"
+              <RichTextBox x:Name="RtbLog" Grid.Row="2" Height="220" MinHeight="96" MaxHeight="240"
+                           Visibility="Collapsed"
                            BorderThickness="0" Background="{DynamicResource LogBg}"
                            FontFamily="Cascadia Mono, Consolas, Courier New" FontSize="11.5"
                            Foreground="{DynamicResource Body}" IsReadOnly="True" IsUndoEnabled="False"
@@ -1449,7 +1451,7 @@ $windowXaml = @'
                      Foreground="{DynamicResource Muted}" VerticalAlignment="Center"/>
           <TextBlock Text="Zapret Control · WPF" FontSize="11"
                      Foreground="{DynamicResource Muted}" HorizontalAlignment="Right"
-                     VerticalAlignment="Center" Opacity="0.7"/>
+                     VerticalAlignment="Center"/>
         </Grid>
       </Border>
 
@@ -1472,10 +1474,12 @@ $script:Form = $script:Window
 # Не даём окну выйти за рабочую область (1366x768, High-DPI, панель задач).
 try {
     $work = [Windows.SystemParameters]::WorkArea
-    $script:Window.Width  = [Math]::Max(940, [Math]::Min($script:Window.Width,  $work.Width  - 40))
-    $script:Window.Height = [Math]::Max(620, [Math]::Min($script:Window.Height, $work.Height - 40))
-    $script:Window.MinWidth  = [Math]::Min($script:Window.MinWidth,  $work.Width  - 40)
-    $script:Window.MinHeight = [Math]::Min($script:Window.MinHeight, $work.Height - 40)
+    $maxWidth  = [Math]::Max(880, $work.Width  - 40)
+    $maxHeight = [Math]::Max(480, $work.Height - 40)
+    $script:Window.Width  = [Math]::Min($script:Window.Width,  $maxWidth)
+    $script:Window.Height = [Math]::Min($script:Window.Height, $maxHeight)
+    $script:Window.MinWidth  = [Math]::Min($script:Window.MinWidth,  $maxWidth)
+    $script:Window.MinHeight = [Math]::Min($script:Window.MinHeight, $maxHeight)
 } catch { }
 
 function Get-Ui {
@@ -1485,12 +1489,14 @@ function Get-Ui {
 
 $script:LstStrategies     = Get-Ui 'LstStrategies'
 $script:RtbLog            = Get-Ui 'RtbLog'
+$script:PageScroll        = Get-Ui 'PageScroll'
 $script:StatusLabel       = Get-Ui 'StatusLabel'
 $script:AdminPill         = Get-Ui 'AdminPill'
 $script:AdminPillText     = Get-Ui 'AdminPillText'
 $script:AdminPillDot      = Get-Ui 'AdminPillDot'
 $script:VpnPill           = Get-Ui 'VpnPill'
 $script:VpnPillText       = Get-Ui 'VpnPillText'
+$script:VpnPillDot        = Get-Ui 'VpnPillDot'
 $script:ChkAutostart      = Get-Ui 'ChkAutostart'
 $script:ChkBatUpdates     = Get-Ui 'ChkBatUpdates'
 $script:ChkAutoScroll     = Get-Ui 'ChkAutoScroll'
@@ -1763,6 +1769,57 @@ function Set-AdminPill {
     }
 }
 
+function Update-ThemeSurfaces {
+    param([hashtable]$PreviousPalette)
+
+    # Единая точка перекраски поверхностей, которым цвет задаётся из кода.
+    # Вызывается после Set-ThemeBrushVars, поэтому $script:Br* уже из новой палитры.
+
+    # 1. Админ-пилюля: снимаем артефакты прошлой темы (shimmer, glow, локальные кисти).
+    if ($script:AdminPill) {
+        $script:AdminPillShimmer = $false
+        $script:AdminPill.Effect = $null
+        $script:AdminPill.Background = $script:BrPillOk
+        $script:AdminPill.BorderBrush = $null
+    }
+    if ($script:AdminPillText) { $script:AdminPillText.Foreground = $script:BrInk }
+    if ($script:AdminPillDot) { $script:AdminPillDot.Fill = $script:BrPillOkDot }
+
+    # 2. VPN-пилюля.
+    if ($script:VpnPill) { $script:VpnPill.Background = $script:BrPillWarn }
+    if ($script:VpnPillText) { $script:VpnPillText.Foreground = $script:BrInk }
+    if ($script:VpnPillDot) { $script:VpnPillDot.Fill = $script:BrPillWarnDot }
+
+    # 3. Статус-бар и служебные подписи.
+    if ($script:StatusLabel) { $script:StatusLabel.Foreground = $script:BrMuted }
+    if ($script:LblUpdateStatus) { $script:LblUpdateStatus.Foreground = $script:BrMuted }
+    if ($script:LblGuiStatus) { $script:LblGuiStatus.Foreground = $script:BrMuted }
+
+    # 4. Журнал: фон/текст плюс уже выведенные строки из палитры прошлой темы.
+    if ($script:RtbLog) {
+        $script:RtbLog.Background = Get-Brush $script:CurrentPalette.LogBg
+        $script:RtbLog.Foreground = $script:BrBody
+    }
+    if ($PreviousPalette) { Update-LogTheme $PreviousPalette }
+
+    # 5. Фактическое состояние пилюль (неоновый shimmer включается только для neon).
+    if (Get-Command -Name Set-AdminPill -ErrorAction SilentlyContinue) {
+        try { Set-AdminPill ([bool](Test-IsAdmin)) } catch { }
+    }
+}
+
+function Update-LogDrawerMetrics {
+    # Журнал разворачивается не выше доли окна, чтобы не выдавливать страницу и статус-бар.
+    if (-not $script:Window -or -not $script:RtbLog) { return }
+    $windowHeight = $script:Window.ActualHeight
+    if ($windowHeight -le 0) { $windowHeight = $script:Window.Height }
+    if ($windowHeight -le 0) { return }
+    $available = $windowHeight - 64 - 30 - 18 - 42 - 1 - 24
+    $maxLog = [Math]::Max(96, [Math]::Min(240, $available * 0.4))
+    $maxLog = [Math]::Round($maxLog)
+    $script:RtbLog.MaxHeight = $maxLog
+    $script:RtbLog.Height = $maxLog
+}
 function Update-VpnPill {
     if (-not $script:VpnPill) { return }
     if (((Get-Date) - $script:VpnStateChecked).TotalSeconds -lt 10) { return }
@@ -3435,6 +3492,27 @@ function Show-NavPage {
             $script:NavPages[$i].Visibility = [Windows.Visibility]::Collapsed
         }
     }
+
+    # Каждая страница открывается с начала: иначе ScrollViewer сохраняет прокрутку
+    # предыдущей страницы (например, после выбора темы внизу «Настроек»).
+    $scroll = $script:PageScroll
+    if (-not $scroll) { $scroll = Get-Ui 'PageScroll' }
+    if ($scroll) {
+        $scroll.ScrollToTop()
+        $scroll.ScrollToLeftEnd()
+        # Повторяем после пересчёта разметки — уже в script-scope, чтобы делегат
+        # диспетчера видел переменные.
+        try {
+            $script:Window.Dispatcher.BeginInvoke(
+                [action]{
+                    if ($script:PageScroll) {
+                        $script:PageScroll.ScrollToTop()
+                        $script:PageScroll.ScrollToLeftEnd()
+                    }
+                },
+                [Windows.Threading.DispatcherPriority]::Background) | Out-Null
+        } catch { }
+    }
 }
 
 for ($i = 0; $i -lt $script:NavButtons.Count; $i++) {
@@ -3459,6 +3537,11 @@ $script:Window.Add_Loaded({
     if ($script:LstStrategies -and $script:LstStrategies.SelectedItem) {
         try { $script:LstStrategies.ScrollIntoView($script:LstStrategies.SelectedItem) } catch { }
     }
+    try { Update-LogDrawerMetrics } catch { }
+})
+
+$script:Window.Add_SizeChanged({
+    try { Update-LogDrawerMetrics } catch { }
 })
 
 foreach ($themePair in @(@('ThemeLight', 'light'), @('ThemeDark', 'dark'), @('ThemeNeon', 'neon'))) {
@@ -3658,6 +3741,7 @@ $script:ChkStartupUpdates.Add_Click({
         $script:RtbLog.Visibility = [Windows.Visibility]::Collapsed
         (Get-Ui 'BtnToggleLog').Content = 'Развернуть'
     } else {
+        try { Update-LogDrawerMetrics } catch { }
         $script:RtbLog.Visibility = [Windows.Visibility]::Visible
         (Get-Ui 'BtnToggleLog').Content = 'Свернуть'
         $script:RtbLog.ScrollToEnd()

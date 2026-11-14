@@ -76,22 +76,38 @@ function Resolve-ZapretRoot {
     if ($candidates.Count -eq 0) { return $null }
     if ($candidates.Count -eq 1) { return $candidates[0] }
 
-    $best = $null
-    $bestVersion = $null
-    foreach ($item in $candidates) {
+    # Оцениваем каждый кандидат: версия из имени папки + время изменения bin\winws.exe.
+    # Свежесть важнее номера в имени: вручную распакованный пакет без версии в имени
+    # обычно новее, чем старая версионированная папка, оставшаяся от прошлых обновлений.
+    $evaluated = @(foreach ($item in $candidates) {
         $leaf = Split-Path -Leaf $item
         $match = [regex]::Match($leaf, '(\d+(?:\.\d+){1,3})')
         $version = $null
         if ($match.Success) {
             try { $version = [version]$match.Groups[1].Value } catch { $version = $null }
         }
-        if ($null -eq $bestVersion -or ($null -ne $version -and $version -gt $bestVersion)) {
-            $best = $item
-            if ($null -ne $version) { $bestVersion = $version }
+
+        $stamp = [long]0
+        $info = Get-Item -LiteralPath (Join-Path $item 'bin\winws.exe') -ErrorAction SilentlyContinue
+        if ($info) { $stamp = $info.LastWriteTimeUtc.Ticks }
+
+        [pscustomobject]@{
+            Path    = $item
+            Version = $version
+            Stamp   = $stamp
         }
-    }
-    if (-not $best) { $best = $candidates[0] }
-    return $best
+    })
+
+    if ($evaluated.Count -eq 0) { return $candidates[0] }
+
+    $ordered = @($evaluated | Sort-Object -Property @(
+        @{ Expression = { $_.Stamp }; Descending = $true },
+        @{ Expression = { if ($null -ne $_.Version) { $_.Version } else { [version]'0.0' } }; Descending = $true },
+        @{ Expression = { $_.Path }; Descending = $false }
+    ))
+
+    if ($ordered.Count -eq 0) { return $candidates[0] }
+    return $ordered[0].Path
 }
 
 # ---------------------------------------------------------------------------
@@ -102,9 +118,13 @@ function Get-Strategies {
 
     if (-not (Test-Path -LiteralPath $Root)) { return @() }
 
+    # general.bat — базовая стратегия, её ставим первой, остальные — в естественном порядке.
     $files = @(Get-ChildItem -LiteralPath $Root -Filter '*.bat' -File -ErrorAction SilentlyContinue |
         Where-Object { $_.Name -notlike 'service*' } |
-        Sort-Object { [regex]::Replace($_.Name, '(\d+)', { $args[0].Value.PadLeft(8, '0') }) })
+        Sort-Object -Property @(
+            @{ Expression = { if ($_.Name -ieq 'general.bat') { 0 } else { 1 } } },
+            @{ Expression = { [regex]::Replace($_.Name, '(\d+)', { param($m) $m.Value.PadLeft(8, '0') }) } }
+        ))
 
     return $files
 }
@@ -122,7 +142,17 @@ function Get-GameFilterState {
 
     if (-not (Test-Path -LiteralPath $state.FilePath)) { return $state }
 
-    foreach ($line in [IO.File]::ReadAllLines($state.FilePath)) {
+    $lines = $null
+    try {
+        $lines = [IO.File]::ReadAllLines($state.FilePath)
+    } catch {
+        # Файл занят или недоступен: не роняем вызывающий код, работаем как с «выключено».
+        $script:ZC_LastGameFilterError = $_.Exception.Message
+        Write-Verbose ('game_filter.enabled не прочитан: ' + $_.Exception.Message)
+        return $state
+    }
+
+    foreach ($line in $lines) {
         if ($line -match '^\s*mode\s*=\s*(\S+)\s*$') {
             $state.Mode = $Matches[1].ToLowerInvariant()
         } elseif ($line -match '^\s*tcp\s*=\s*(\S+)\s*$') {
@@ -161,29 +191,43 @@ function Get-WinwsArgs {
     if (-not (Test-Path -LiteralPath $BatPath)) { return $null }
 
     $lines = [IO.File]::ReadAllLines($BatPath)
-    $builder = New-Object System.Text.StringBuilder
-    $capture = $false
+    $argLine = $null
 
-    foreach ($line in $lines) {
-        if (-not $capture) {
-            if ($line -match 'winws\.exe') { $capture = $true } else { continue }
+    for ($index = 0; $index -lt $lines.Count; $index++) {
+        $line = $lines[$index]
+        if ($line -notmatch 'winws\.exe') { continue }
+
+        # Служебные строки тоже содержат winws.exe (tasklist, findstr, "if not exist"),
+        # но запуском не являются — их пропускаем.
+        if ($line -match '^\s*(rem\b|::|echo\b|set\b|if\b|where\b|tasklist\b|findstr\b|find\b|sc\b|call\b|goto\b)') { continue }
+
+        # Собираем строку запуска вместе с переносами «^» в конце строк.
+        $builder = New-Object System.Text.StringBuilder
+        for ($next = $index; $next -lt $lines.Count; $next++) {
+            $trimmed = $lines[$next].TrimEnd()
+            if ($trimmed.EndsWith('^')) {
+                [void]$builder.Append($trimmed.Substring(0, $trimmed.Length - 1)).Append(' ')
+            } else {
+                [void]$builder.Append($trimmed)
+                break
+            }
         }
-        $trimmed = $line.TrimEnd()
-        if ($trimmed.EndsWith('^')) {
-            [void]$builder.Append($trimmed.Substring(0, $trimmed.Length - 1)).Append(' ')
-        } else {
-            [void]$builder.Append($trimmed)
-            break
-        }
+
+        if ($builder.Length -eq 0) { continue }
+
+        $text = $builder.ToString()
+        $match = [regex]::Match($text, 'winws\.exe"?\s*(.*)$', [Text.RegularExpressions.RegexOptions]::IgnoreCase)
+        if (-not $match.Success) { continue }
+
+        $candidate = $match.Groups[1].Value.Trim()
+        if ([string]::IsNullOrWhiteSpace($candidate)) { continue }
+        # Аргументы winws.exe начинаются с «--» или «/»; иначе это не строка запуска.
+        if ($candidate -notmatch '^(--|/)') { continue }
+
+        $argLine = $candidate
+        break
     }
 
-    if ($builder.Length -eq 0) { return $null }
-
-    $text = $builder.ToString()
-    $match = [regex]::Match($text, 'winws\.exe"?\s*(.*)$', [Text.RegularExpressions.RegexOptions]::IgnoreCase)
-    if (-not $match.Success) { return $null }
-
-    $argLine = $match.Groups[1].Value.Trim()
     if ([string]::IsNullOrWhiteSpace($argLine)) { return $null }
 
     $gameFilter = Get-GameFilterState -Root $Root
@@ -200,14 +244,36 @@ function Get-WinwsArgs {
     $binSlash   = (Join-Path $Root 'bin').TrimEnd('\') + '\'
     $listsSlash = (Join-Path $Root 'lists').TrimEnd('\') + '\'
 
-    $argLine = $argLine.Replace('%~dp0', $rootSlash)
-    $argLine = $argLine.Replace('%BIN%', $binSlash)
-    $argLine = $argLine.Replace('%LISTS%', $listsSlash)
-    $argLine = $argLine.Replace('%GameFilterTCP%', $tcp)
-    $argLine = $argLine.Replace('%GameFilterUDP%', $udp)
-    $argLine = $argLine.Replace('%GameFilter%', $generic)
+    # В cmd.exe подстановка переменных регистронезависима — повторяем это поведение.
+    $argLine = Replace-ZcTextIgnoreCase -Text $argLine -Token '%~dp0' -Value $rootSlash
+    $argLine = Replace-ZcTextIgnoreCase -Text $argLine -Token '%BIN%' -Value $binSlash
+    $argLine = Replace-ZcTextIgnoreCase -Text $argLine -Token '%LISTS%' -Value $listsSlash
+    $argLine = Replace-ZcTextIgnoreCase -Text $argLine -Token '%GameFilterTCP%' -Value $tcp
+    $argLine = Replace-ZcTextIgnoreCase -Text $argLine -Token '%GameFilterUDP%' -Value $udp
+    $argLine = Replace-ZcTextIgnoreCase -Text $argLine -Token '%GameFilter%' -Value $generic
+
+    # Неизвестная переменная осталась неподставленной — winws.exe получит мусор,
+    # поэтому лучше вернуть $null, чем запускать заведомо битую стратегию.
+    if ($argLine -match '%[^%\s]+%') {
+        Write-Verbose ('Get-WinwsArgs: не подставлены переменные в ' + $BatPath + ': ' + $Matches[0])
+        return $null
+    }
 
     return $argLine
+}
+
+function Replace-ZcTextIgnoreCase {
+    # Замена подстроки без учёта регистра; $Value подставляется буквально.
+    param(
+        [string]$Text,
+        [string]$Token,
+        [string]$Value
+    )
+
+    if ([string]::IsNullOrEmpty($Text) -or [string]::IsNullOrEmpty($Token)) { return $Text }
+    $replacement = [string]$Value
+    if ($replacement.Contains('$')) { $replacement = $replacement.Replace('$', '$$') }
+    return [regex]::Replace($Text, [regex]::Escape($Token), $replacement, [Text.RegularExpressions.RegexOptions]::IgnoreCase)
 }
 
 # ---------------------------------------------------------------------------
@@ -216,15 +282,29 @@ function Get-WinwsArgs {
 function Get-IpsetState {
     param([string]$Root)
 
-    $file = Join-Path $Root 'lists\ipset-all.txt'
-    if (-not (Test-Path -LiteralPath $file)) { return 'none' }
+    $kind = Get-IpsetListKind -Path (Join-Path $Root 'lists\ipset-all.txt')
+    if ($kind -eq 'missing') { return 'none' }
+    return $kind
+}
 
-    $info = Get-Item -LiteralPath $file -ErrorAction SilentlyContinue
-    if (-not $info -or $info.Length -eq 0) { return 'any' }
+function Get-IpsetListKind {
+    # Возвращает 'missing' | 'any' | 'none' | 'loaded'.
+    # Ключевое: пустой ИЛИ состоящий из пробелов/переводов строк файл — это «any».
+    # Раньше файл из двух байт (\r\n) считался «loaded», из-за чего режим any
+    # не определялся, а при переходе any -> none реальный список терялся.
+    param([string]$Path)
+
+    if ([string]::IsNullOrWhiteSpace($Path)) { return 'missing' }
+    if (-not (Test-Path -LiteralPath $Path)) { return 'missing' }
+
+    $info = Get-Item -LiteralPath $Path -ErrorAction SilentlyContinue
+    if (-not $info) { return 'missing' }
+    if ($info.Length -eq 0) { return 'any' }
 
     $head = ''
+    $read = 0
     try {
-        $stream = [IO.File]::Open($file, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
+        $stream = [IO.File]::Open($Path, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
         try {
             $size = [int][Math]::Min(4096, $info.Length)
             $buffer = New-Object byte[] $size
@@ -234,9 +314,16 @@ function Get-IpsetState {
             $stream.Dispose()
         }
     } catch {
+        # Не читается (нет прав / файл занят): считаем «loaded», чтобы не принять
+        # реальный список за пустой и не перезаписать его.
+        $script:ZC_LastIpsetError = $_.Exception.Message
+        Write-Verbose ('ipset-all.txt не прочитан: ' + $_.Exception.Message)
         return 'loaded'
     }
 
+    if ($read -ge [int][Math]::Min(4096, $info.Length) -and [string]::IsNullOrWhiteSpace($head)) {
+        return 'any'
+    }
     if ($head -match '203\.0\.113\.113/32') { return 'none' }
     return 'loaded'
 }
@@ -249,35 +336,69 @@ function Set-IpsetMode {
 
     $listFile = Join-Path $Root 'lists\ipset-all.txt'
     $backupFile = $listFile + '.backup'
+    # Предыдущий реальный список, сохранённый, когда .backup уже был занят.
+    $previousFile = $backupFile + '.prev'
     $current = Get-IpsetState -Root $Root
 
     switch ($Mode) {
         'none' {
-            if ($current -eq 'none') { return }
             if ($current -eq 'loaded') {
-                if (Test-Path -LiteralPath $backupFile) { Remove-Item -LiteralPath $backupFile -Force }
-                Move-Item -LiteralPath $listFile -Destination $backupFile -Force
+                if (-not (Test-Path -LiteralPath $backupFile) -or (Get-IpsetListKind -Path $backupFile) -ne 'loaded') {
+                    # Бэкапа нет (или в нём заглушка/пусто) — просто переносим список.
+                    if (Test-Path -LiteralPath $backupFile) { Remove-Item -LiteralPath $backupFile -Force }
+                    Move-Item -LiteralPath $listFile -Destination $backupFile -Force
+                } else {
+                    # В .backup лежит настоящий список — не уничтожаем его,
+                    # а текущий список кладём рядом, чтобы ничего не потерять.
+                    Move-Item -LiteralPath $listFile -Destination $previousFile -Force
+                }
             }
-            Set-Content -LiteralPath $listFile -Value '203.0.113.113/32' -Encoding Ascii
+            Set-IpsetFileContent -Path $listFile -Content '203.0.113.113/32'
         }
         'any' {
-            if ($current -eq 'any') { return }
             if ($current -eq 'loaded') {
                 if (Test-Path -LiteralPath $backupFile) { Remove-Item -LiteralPath $backupFile -Force }
                 Copy-Item -LiteralPath $listFile -Destination $backupFile -Force
             }
-            Set-Content -LiteralPath $listFile -Value '' -Encoding Ascii
+            # Истинно пустой файл (0 байт): Set-Content -Value '' создавал 2 байта (\r\n),
+            # из-за чего режим any не определялся ни GUI, ни service.bat.
+            Set-IpsetFileContent -Path $listFile -Content ''
         }
         'loaded' {
             if ($current -eq 'loaded') { return }
-            if (-not (Test-Path -LiteralPath $backupFile)) {
+
+            $source = $null
+            foreach ($candidate in @($backupFile, $previousFile)) {
+                if ((Get-IpsetListKind -Path $candidate) -eq 'loaded') {
+                    if (-not $source) { $source = $candidate }
+                    elseif ((Get-Item -LiteralPath $candidate).LastWriteTimeUtc -gt (Get-Item -LiteralPath $source).LastWriteTimeUtc) {
+                        $source = $candidate
+                    }
+                }
+            }
+
+            if (-not $source) {
                 throw 'Нет резервной копии списка IPSet. Сначала обновите IPSet (кнопка «Обновить IPSet»).'
             }
             Remove-Item -LiteralPath $listFile -Force -ErrorAction SilentlyContinue
-            Move-Item -LiteralPath $backupFile -Destination $listFile -Force
+            Move-Item -LiteralPath $source -Destination $listFile -Force
         }
         default { throw "Неизвестный режим IPSet: $Mode" }
     }
+}
+
+function Set-IpsetFileContent {
+    # Пишет содержимое без завершающего перевода строки (в т.ч. истинно пустой файл).
+    param(
+        [string]$Path,
+        [string]$Content
+    )
+
+    $parent = Split-Path -Parent $Path
+    if ($parent -and -not (Test-Path -LiteralPath $parent)) {
+        New-Item -ItemType Directory -Path $parent -Force | Out-Null
+    }
+    [IO.File]::WriteAllText($Path, [string]$Content, (New-Object Text.UTF8Encoding($false)))
 }
 
 # ---------------------------------------------------------------------------
@@ -371,7 +492,11 @@ function Stop-ZapretService {
         Stop-ZapretProcesses | Out-Null
         Reset-WinDivertDriver
     }
-    return $true
+
+    # Возвращаем фактическое состояние, иначе GUI запустит новую стратегию
+    # поверх ещё живой старой службы.
+    try { $service.Refresh() } catch { }
+    return ($service.Status -eq 'Stopped')
 }
 
 function Start-ZapretService {
@@ -390,28 +515,43 @@ function Start-ZapretService {
         Stop-ZapretProcesses | Out-Null
         Reset-WinDivertDriver
 
+        $startError = $null
         try {
             Start-Service -Name $Name -ErrorAction Stop
         } catch {
-            $script:ZC_LastServiceError = $_.Exception.Message
+            $startError = $_.Exception.Message
+            $script:ZC_LastServiceError = $startError
         }
 
         # winws может успеть перейти в Running и сразу упасть (код 1),
         # поэтому требуем стабильной работы несколько секунд.
         $stable = $false
+        $sawRunning = $false
         $lastStatus = ''
         for ($i = 0; $i -lt 18; $i++) {
             Start-Sleep -Milliseconds 300
             try { $service.Refresh() } catch { }
             $lastStatus = $service.Status.ToString()
+            if ($lastStatus -eq 'Running') { $sawRunning = $true }
             if ($lastStatus -ne 'Running') { break }
             if ($i -eq 17) { $stable = $true }
         }
 
-        if ($stable -and @(Get-WinwsProcesses).Count -gt 0) { return $true }
+        $winwsCount = @(Get-WinwsProcesses).Count
+        if ($stable -and $winwsCount -gt 0) { return $true }
 
-        if ($lastStatus -and $lastStatus -ne 'Running') {
-            $script:ZC_LastServiceError = 'Служба запустилась и сразу остановилась (winws.exe завершился с ошибкой).'
+        # Сохраняем реальную причину: состояние службы + исходное исключение.
+        $details = New-Object System.Collections.Generic.List[string]
+        if ($startError) { $details.Add('Start-Service: ' + $startError) }
+        if ($lastStatus) { $details.Add('состояние службы: ' + $lastStatus) }
+        if ($winwsCount -eq 0) { $details.Add('процесс winws.exe не найден') }
+
+        if ($details.Count -gt 0) {
+            if ($sawRunning -and $lastStatus -ne 'Running') {
+                $script:ZC_LastServiceError = 'Служба запустилась и сразу остановилась (' + ($details -join '; ') + ')'
+            } else {
+                $script:ZC_LastServiceError = 'Служба не запустилась (' + ($details -join '; ') + ')'
+            }
         }
     }
 
@@ -428,7 +568,24 @@ function Reset-WinDivertDriver {
         $service = Get-Service -Name $name -ErrorAction SilentlyContinue
         if (-not $service) { continue }
         try { Stop-Service -Name $name -Force -ErrorAction SilentlyContinue } catch { }
+
         & sc.exe delete $name 2>$null | Out-Null
+        $code = $LASTEXITCODE
+        if ($code -ne 0) {
+            # 1060 — службы уже нет, это не ошибка; остальные коды логируем.
+            if ($code -ne 1060) {
+                $script:ZC_LastDivertError = "sc.exe delete $name завершился с кодом $code"
+                Write-Verbose $script:ZC_LastDivertError
+            }
+            continue
+        }
+
+        # sc.exe удаляет службу асинхронно — ждём фактического исчезновения (до 5 с),
+        # иначе следующий старт winws снова упрётся в занятый драйвер.
+        for ($i = 0; $i -lt 20; $i++) {
+            if (-not (Get-Service -Name $name -ErrorAction SilentlyContinue)) { break }
+            Start-Sleep -Milliseconds 250
+        }
     }
 }
 
@@ -465,14 +622,11 @@ function Get-VpnConflicts {
         'HappService', 'OpenVPN*', 'WireGuard*', 'Tailscale', 'ZeroTierOneService',
         'NordVPN*', 'ProtonVPN*', 'Surfshark*', 'Amnezia*', 'Windscribe*', 'warp-svc'
     )
-    foreach ($service in @(Get-Service -ErrorAction SilentlyContinue)) {
+
+    # Get-Service сам раскрывает шаблоны — не перебираем весь список служб системы.
+    foreach ($service in @(Get-Service -Name $servicePatterns -ErrorAction SilentlyContinue)) {
         if ($service.Status -ne 'Running') { continue }
-        foreach ($pattern in $servicePatterns) {
-            if ($service.Name -like $pattern -or $service.DisplayName -like $pattern) {
-                if (-not $found.Contains($service.Name)) { [void]$found.Add($service.Name) }
-                break
-            }
-        }
+        if (-not $found.Contains($service.Name)) { [void]$found.Add($service.Name) }
     }
 
     return @($found)
@@ -517,11 +671,28 @@ function Get-LocalZapretVersion {
     if ($cached -and $cached.Stamp -eq $stamp) { return $cached.Version }
 
     $version = $null
-    $match = [regex]::Match([IO.File]::ReadAllText($file), 'LOCAL_VERSION\s*=\s*([0-9][0-9A-Za-z\.\-]*)')
-    if ($match.Success) { $version = $match.Groups[1].Value.Trim() }
+    try {
+        $match = [regex]::Match([IO.File]::ReadAllText($file), 'LOCAL_VERSION\s*=\s*([0-9][0-9A-Za-z\.\-]*)')
+        if ($match.Success) { $version = $match.Groups[1].Value.Trim() }
+    } catch {
+        # Файл занят/недоступен — версия неизвестна, кэш не портим.
+        Write-Verbose ('service.bat не прочитан: ' + $_.Exception.Message)
+        return $null
+    }
 
     $script:ZC_VersionCache[$file] = [pscustomobject]@{ Stamp = $stamp; Version = $version }
     return $version
+}
+
+function Enable-ZcTls12 {
+    # PowerShell 5.1 не всегда включает TLS 1.2 для Invoke-WebRequest (GitHub без него не отвечает).
+    try {
+        $current = [Net.ServicePointManager]::SecurityProtocol
+        $tls12 = [Net.SecurityProtocolType]::Tls12
+        if (($current -band $tls12) -eq 0) {
+            [Net.ServicePointManager]::SecurityProtocol = $current -bor $tls12
+        }
+    } catch { }
 }
 
 function Invoke-CurlText {
@@ -534,13 +705,17 @@ function Invoke-CurlText {
     if ($curl) {
         $tempFile = Join-Path ([IO.Path]::GetTempPath()) ('zc-api-' + [Guid]::NewGuid().ToString('N') + '.json')
         try {
-            & curl.exe -s -L --max-time $TimeoutSec -H 'User-Agent: ZapretControl' -o $tempFile $Url 2>$null
+            # -f: HTTP-ошибки (404 и т.п.) считаем ошибкой, «--» отделяет URL от ключей.
+            & curl.exe -s -L -f --max-time $TimeoutSec -H 'User-Agent: ZapretControl' -o $tempFile -- $Url 2>$null
             if ($LASTEXITCODE -ne 0) { return $null }
             if (-not (Test-Path -LiteralPath $tempFile)) { return $null }
             # curl отдаёт UTF-8, а PowerShell 5.1 декодирует stdout в OEM-кодировке,
             # поэтому читаем ответ из файла явно как UTF-8.
-            return ([IO.File]::ReadAllText($tempFile, [Text.Encoding]::UTF8)).Trim()
+            $text = ([IO.File]::ReadAllText($tempFile, [Text.Encoding]::UTF8)).Trim()
+            if ([string]::IsNullOrWhiteSpace($text)) { return $null }
+            return $text
         } catch {
+            Write-Verbose ('curl.exe: ' + $_.Exception.Message)
             return $null
         } finally {
             if (Test-Path -LiteralPath $tempFile) { Remove-Item -LiteralPath $tempFile -Force -ErrorAction SilentlyContinue }
@@ -548,9 +723,11 @@ function Invoke-CurlText {
     }
 
     try {
+        Enable-ZcTls12
         $response = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec $TimeoutSec -Headers @{ 'User-Agent' = 'ZapretControl' }
         return $response.Content
     } catch {
+        Write-Verbose ('Invoke-WebRequest: ' + $_.Exception.Message)
         return $null
     }
 }
@@ -559,21 +736,74 @@ function Invoke-CurlDownload {
     param(
         [string]$Url,
         [string]$OutFile,
-        [int]$TimeoutSec = 300
+        [int]$TimeoutSec = 300,
+        [string]$ExpectedSha256 = ''
     )
 
-    $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
-    if ($curl) {
-        & curl.exe -L -f -s --max-time $TimeoutSec -o $OutFile $Url 2>$null
-        return ($LASTEXITCODE -eq 0 -and (Test-Path -LiteralPath $OutFile))
-    }
+    if ([string]::IsNullOrWhiteSpace($Url) -or [string]::IsNullOrWhiteSpace($OutFile)) { return $false }
 
+    $script:ZC_LastDownloadError = $null
+
+    # Файл от предыдущей попытки нельзя принять за результат текущего скачивания.
     try {
-        Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec $TimeoutSec -OutFile $OutFile
-        return (Test-Path -LiteralPath $OutFile)
+        if (Test-Path -LiteralPath $OutFile) {
+            Remove-Item -LiteralPath $OutFile -Force -ErrorAction Stop
+        }
     } catch {
+        $script:ZC_LastDownloadError = 'Не удалось удалить старый файл: ' + $_.Exception.Message
+        Write-Verbose ('Invoke-CurlDownload: ' + $script:ZC_LastDownloadError)
         return $false
     }
+
+    $downloaded = $false
+    $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
+    try {
+        if ($curl) {
+            # -f: HTTP 4xx/5xx — ошибка; «--» отделяет URL от ключей curl.
+            & curl.exe -L -f -s --max-time $TimeoutSec -o $OutFile -- $Url 2>$null
+            $downloaded = ($LASTEXITCODE -eq 0)
+            if (-not $downloaded) { $script:ZC_LastDownloadError = "curl.exe завершился с кодом $LASTEXITCODE" }
+        } else {
+            Enable-ZcTls12
+            Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec $TimeoutSec -OutFile $OutFile -ErrorAction Stop
+            $downloaded = $true
+        }
+    } catch {
+        $downloaded = $false
+        $script:ZC_LastDownloadError = $_.Exception.Message
+    }
+
+    $info = $null
+    if ($downloaded) { $info = Get-Item -LiteralPath $OutFile -ErrorAction SilentlyContinue }
+
+    # Пустой файл — не успех (частый случай при обрыве соединения).
+    if (-not $downloaded -or -not $info -or $info.Length -le 0) {
+        if (Test-Path -LiteralPath $OutFile) { Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue }
+        if (-not $script:ZC_LastDownloadError) { $script:ZC_LastDownloadError = 'Файл не скачан или пуст' }
+        Write-Verbose ('Invoke-CurlDownload: ' + $script:ZC_LastDownloadError)
+        return $false
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($ExpectedSha256)) {
+        $expected = ([string]$ExpectedSha256).Trim() -replace '^sha256:', ''
+        $actual = $null
+        try {
+            $actual = (Get-FileHash -LiteralPath $OutFile -Algorithm SHA256 -ErrorAction Stop).Hash
+        } catch {
+            $script:ZC_LastDownloadError = 'Не удалось посчитать SHA256: ' + $_.Exception.Message
+        }
+
+        if (-not $actual -or $actual -ne $expected) {
+            if (Test-Path -LiteralPath $OutFile) { Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue }
+            if (-not $script:ZC_LastDownloadError) {
+                $script:ZC_LastDownloadError = "Не совпал SHA256: ожидался $expected, получен $actual"
+            }
+            Write-Verbose ('Invoke-CurlDownload: ' + $script:ZC_LastDownloadError)
+            return $false
+        }
+    }
+
+    return $true
 }
 
 function Get-LatestZapretRelease {

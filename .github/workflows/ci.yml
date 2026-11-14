@@ -12,63 +12,400 @@ permissions:
 
 jobs:
   validate:
-    name: Проверка скриптов
+    name: Проверка скриптов (pwsh)
     runs-on: windows-latest
+    timeout-minutes: 10
 
     steps:
-      - name: Checkout
+      - name: Получение кода
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
-      - name: Синтаксис PowerShell
+      - name: Синтаксис всех скриптов PowerShell
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
           $failed = $false
-          Get-ChildItem -Path . -Filter '*.ps1' -File | ForEach-Object {
+          $root = (Get-Location).Path
+          $scripts = @(
+            Get-ChildItem -LiteralPath $root -Filter '*.ps1' -File -Recurse |
+              Where-Object { $_.FullName -notmatch '[\\/]\.git[\\/]' } |
+              Sort-Object -Property FullName
+          )
+          if ($scripts.Count -eq 0) {
+            Write-Host '::error::Не найден ни один файл *.ps1'
+            exit 1
+          }
+          foreach ($file in $scripts) {
+            $tokens = $null
             $errors = $null
-            [void][System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$null, [ref]$errors)
-            if ($errors.Count -gt 0) {
+            [void][System.Management.Automation.Language.Parser]::ParseFile(
+              $file.FullName, [ref]$tokens, [ref]$errors)
+            if ($null -ne $errors -and $errors.Count -gt 0) {
               $failed = $true
-              $errors | ForEach-Object {
-                Write-Host "::error file=$($_.Extent.File),line=$($_.Extent.StartLineNumber)::$($_.Message)"
+              foreach ($parseError in $errors) {
+                $line = 1
+                $col = 1
+                if ($null -ne $parseError.Extent) {
+                  $line = $parseError.Extent.StartLineNumber
+                  $col = $parseError.Extent.StartColumnNumber
+                }
+                $message = $parseError.Message -replace '\r?\n', ' '
+                Write-Host "::error file=$($file.Name),line=$line,col=$col::$message"
               }
-            } else {
-              Write-Host "OK: $($_.Name)"
+            }
+            else {
+              Write-Host "Синтаксис OK: $($file.Name)"
             }
           }
           if ($failed) { exit 1 }
-
-      - name: Обязательные файлы
-        shell: pwsh
-        run: |
-          $required = @(
-            'ZapretControl.ps1',
-            'ZapretCommon.ps1',
-            'ZapretControl.bat',
-            'README.md',
-            'LICENSE',
-            'NOTICE.md',
-            'CHANGELOG.md'
-          )
-          foreach ($file in $required) {
-            if (-not (Test-Path -LiteralPath $file)) {
-              Write-Host "::error::$file не найден"
-              exit 1
-            }
-          }
-          Write-Host 'Все обязательные файлы на месте.'
 
       - name: Кодировка UTF-8 с BOM
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
           $failed = $false
-          Get-ChildItem -Path . -Filter '*.ps1' -File | ForEach-Object {
-            $bytes = [System.IO.File]::ReadAllBytes($_.FullName)
+          $root = (Get-Location).Path
+          $strictUtf8 = New-Object System.Text.UTF8Encoding($false, $true)
+          $scripts = @(
+            Get-ChildItem -LiteralPath $root -Filter '*.ps1' -File -Recurse |
+              Where-Object { $_.FullName -notmatch '[\\/]\.git[\\/]' } |
+              Sort-Object -Property FullName
+          )
+          foreach ($file in $scripts) {
+            $bytes = [System.IO.File]::ReadAllBytes($file.FullName)
             $hasBom = $bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF
             if (-not $hasBom) {
               $failed = $true
-              Write-Host "::error file=$($_.Name)::PowerShell-скрипт должен быть в UTF-8 с BOM"
-            } else {
-              Write-Host "BOM OK: $($_.Name)"
+              Write-Host "::error file=$($file.Name)::Скрипт должен быть в UTF-8 с BOM"
+              continue
+            }
+            try {
+              [void]$strictUtf8.GetString($bytes, 3, $bytes.Length - 3)
+              Write-Host "Кодировка OK: $($file.Name)"
+            }
+            catch {
+              $failed = $true
+              Write-Host "::error file=$($file.Name)::Содержимое не является корректным UTF-8"
             }
           }
           if ($failed) { exit 1 }
+
+      - name: Обязательные файлы, минимальный размер и число строк
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $minNonEmptyLines = 1
+          $root = (Get-Location).Path
+          $targets = [ordered]@{
+            'ZapretControl.ps1' = @{ MinBytes = 500; Purpose = 'основное GUI-приложение' }
+            'ZapretCommon.ps1'  = @{ MinBytes = 500; Purpose = 'общие функции' }
+            'ZapretControl.bat' = @{ MinBytes = 500; Purpose = 'лаунчер' }
+            'README.md'         = @{ MinBytes = 200; Purpose = 'документация' }
+            'LICENSE'           = @{ MinBytes = 200; Purpose = 'лицензия' }
+            'NOTICE.md'         = @{ MinBytes = 200; Purpose = 'уведомления' }
+            'CHANGELOG.md'      = @{ MinBytes = 200; Purpose = 'история изменений' }
+          }
+          $failed = $false
+          foreach ($name in $targets.Keys) {
+            $rule = $targets[$name]
+            $path = Join-Path $root $name
+            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+              $failed = $true
+              Write-Host "::error file=$name::Файл не найден ($($rule.Purpose))"
+              continue
+            }
+            $fileOk = $true
+            $size = (Get-Item -LiteralPath $path).Length
+            if ($size -lt $rule.MinBytes) {
+              $fileOk = $false
+              Write-Host "::error file=$name::Размер $size байт меньше минимума $($rule.MinBytes)"
+            }
+            $text = [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8)
+            $nonEmpty = @($text -split '\r?\n' | Where-Object { $_.Trim().Length -gt 0 })
+            if ($nonEmpty.Count -lt $minNonEmptyLines) {
+              $fileOk = $false
+              Write-Host "::error file=$name::Файл не содержит ни одной непустой строки"
+            }
+            if ($fileOk) {
+              Write-Host "Файл OK: $name — $size байт, $($nonEmpty.Count) непустых строк"
+            }
+            else {
+              $failed = $true
+            }
+          }
+          if ($failed) { exit 1 }
+
+      - name: В dist нет пользовательских данных
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dist = Join-Path (Get-Location).Path 'dist'
+          if (-not (Test-Path -LiteralPath $dist -PathType Container)) {
+            Write-Host 'Каталог dist отсутствует: проверка пропущена (каталог не коммитится).'
+            exit 0
+          }
+          $failed = $false
+          $found = @(
+            Get-ChildItem -LiteralPath $dist -Recurse -File -Force |
+              Where-Object { $_.Name -eq 'config.json' -or $_.Extension -eq '.log' }
+          )
+          foreach ($item in $found) {
+            $failed = $true
+            Write-Host "::error file=dist/$($item.Name)::В артефактах не должно быть config.json и логов"
+          }
+          if ($failed) { exit 1 }
+          Write-Host 'Каталог dist чист: config.json и логи не найдены.'
+
+      - name: Сверка ZC_AppVersion с CHANGELOG
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = (Get-Location).Path
+          $commonPath = Join-Path $root 'ZapretCommon.ps1'
+          $changelogPath = Join-Path $root 'CHANGELOG.md'
+          if (-not (Test-Path -LiteralPath $commonPath) -or -not (Test-Path -LiteralPath $changelogPath)) {
+            Write-Host '::warning::Не удалось выполнить сверку: нет ZapretCommon.ps1 или CHANGELOG.md'
+            exit 0
+          }
+          $commonText = [System.IO.File]::ReadAllText($commonPath, [System.Text.Encoding]::UTF8)
+          $versionMatch = [regex]::Match($commonText, "ZC_AppVersion\s*=\s*'([0-9]+\.[0-9]+\.[0-9]+)'")
+          if (-not $versionMatch.Success) {
+            Write-Host '::warning file=ZapretCommon.ps1::$ZC_AppVersion не найден или задан не в формате x.y.z'
+            exit 0
+          }
+          $appVersion = $versionMatch.Groups[1].Value
+          $changelogText = [System.IO.File]::ReadAllText($changelogPath, [System.Text.Encoding]::UTF8)
+          $changelogMatch = [regex]::Match($changelogText, '(?m)^##\s*\[?v?([0-9]+\.[0-9]+\.[0-9]+)\]?')
+          if (-not $changelogMatch.Success) {
+            Write-Host '::warning file=CHANGELOG.md::В CHANGELOG не найдена секция вида "## [x.y.z]"'
+            exit 0
+          }
+          $changelogVersion = $changelogMatch.Groups[1].Value
+          if ($appVersion -ne $changelogVersion) {
+            Write-Host "::warning file=CHANGELOG.md::ZC_AppVersion = $appVersion, а верхняя версия в CHANGELOG = $changelogVersion"
+          }
+          else {
+            Write-Host "Версия совпадает: $appVersion"
+          }
+
+  validate-51:
+    name: Проверка в Windows PowerShell 5.1
+    runs-on: windows-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Получение кода
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Целевая версия Windows PowerShell
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = $PSVersionTable.PSVersion
+          Write-Host "Версия PowerShell: $version"
+          if ($version.Major -ne 5) {
+            Write-Host "::error::Ожидалась Windows PowerShell 5.x, получена $version"
+            exit 1
+          }
+
+      - name: Синтаксис всех скриптов в PowerShell 5.1
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $failed = $false
+          $root = (Get-Location).Path
+          $scripts = @(
+            Get-ChildItem -LiteralPath $root -Filter '*.ps1' -File -Recurse |
+              Where-Object { $_.FullName -notmatch '[\\/]\.git[\\/]' } |
+              Sort-Object -Property FullName
+          )
+          if ($scripts.Count -eq 0) {
+            Write-Host '::error::Не найден ни один файл *.ps1'
+            exit 1
+          }
+          foreach ($file in $scripts) {
+            $tokens = $null
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile(
+              $file.FullName, [ref]$tokens, [ref]$errors)
+            if ($null -ne $errors -and $errors.Count -gt 0) {
+              $failed = $true
+              foreach ($parseError in $errors) {
+                $line = 1
+                $col = 1
+                if ($null -ne $parseError.Extent) {
+                  $line = $parseError.Extent.StartLineNumber
+                  $col = $parseError.Extent.StartColumnNumber
+                }
+                $message = $parseError.Message -replace '\r?\n', ' '
+                Write-Host "::error file=$($file.Name),line=$line,col=$col::$message"
+              }
+            }
+            else {
+              Write-Host "Синтаксис OK (5.1): $($file.Name)"
+            }
+          }
+          if ($failed) { exit 1 }
+
+      - name: Загрузка XAML через XamlReader
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = (Get-Location).Path
+          $scriptPath = Join-Path $root 'ZapretControl.ps1'
+          if (-not (Test-Path -LiteralPath $scriptPath -PathType Leaf)) {
+            Write-Host '::error file=ZapretControl.ps1::Файл не найден'
+            exit 1
+          }
+
+          $raw = [System.IO.File]::ReadAllText($scriptPath, [System.Text.Encoding]::UTF8)
+          $pattern = '(?ms)^[ \t]*\$windowXaml\s*=\s*@''\r?\n(.*?)\r?\n''@'
+          $match = [regex]::Match($raw, $pattern)
+          if (-not $match.Success) {
+            Write-Host '::error file=ZapretControl.ps1::Не найден блок $windowXaml = @''...''@'
+            exit 1
+          }
+
+          $xaml = $match.Groups[1].Value
+          $startLine = @($raw.Substring(0, $match.Groups[1].Index) -split '\r?\n').Count
+          Write-Host "Извлечён XAML: $($xaml.Length) символов, начинается со строки $startLine"
+          if ($xaml.Trim().Length -eq 0) {
+            Write-Host "::error file=ZapretControl.ps1,line=$startLine::Блок XAML пуст"
+            exit 1
+          }
+
+          $workDir = Join-Path $env:RUNNER_TEMP ('zapret-xaml-' + [guid]::NewGuid().ToString('N'))
+          New-Item -ItemType Directory -Path $workDir -Force | Out-Null
+          $xamlFile = Join-Path $workDir 'window.xaml'
+          $checkerFile = Join-Path $workDir 'check-xaml.ps1'
+
+          [System.IO.File]::WriteAllText($xamlFile, $xaml, (New-Object System.Text.UTF8Encoding($false)))
+
+          # Вложенный here-string: строки тела остаются в блоке YAML с отступом 10,
+          # закрывающая '@ попадает в нулевую колонку скрипта после снятия отступа.
+          $checker = @'
+          param([string]$XamlPath)
+          $ErrorActionPreference = 'Stop'
+          Add-Type -AssemblyName PresentationFramework
+          $text = [System.IO.File]::ReadAllText($XamlPath, [System.Text.Encoding]::UTF8)
+          try {
+            $element = [System.Windows.Markup.XamlReader]::Parse($text)
+          }
+          catch {
+            $reason = $_.Exception.Message -replace '\r?\n', ' '
+            Write-Host "::error file=ZapretControl.ps1::XAML не загружается: $reason"
+            exit 1
+          }
+          if ($null -eq $element) {
+            Write-Host '::error file=ZapretControl.ps1::XamlReader вернул null'
+            exit 1
+          }
+          Write-Host "XAML OK: $($element.GetType().FullName)"
+          exit 0
+          '@
+          [System.IO.File]::WriteAllText($checkerFile, $checker, (New-Object System.Text.UTF8Encoding($true)))
+
+          # Дочерний процесс гарантирует STA-поток для WPF независимо от настроек раннера.
+          $powershellExe = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+          if (-not (Test-Path -LiteralPath $powershellExe -PathType Leaf)) {
+            Write-Host "::error::Не найден powershell.exe по пути $powershellExe"
+            exit 1
+          }
+
+          & $powershellExe -NoProfile -Sta -ExecutionPolicy Bypass -File $checkerFile -XamlPath $xamlFile
+          $exitCode = $LASTEXITCODE
+          Remove-Item -LiteralPath $workDir -Recurse -Force -ErrorAction SilentlyContinue
+
+          if ($exitCode -ne 0) {
+            Write-Host "::error file=ZapretControl.ps1,line=$startLine::Проверка XAML завершилась с кодом $exitCode"
+            exit 1
+          }
+          Write-Host 'Проверка XAML пройдена.'
+
+  launcher:
+    name: Проверка ZapretControl.bat
+    runs-on: windows-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Получение кода
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Кодировка, ASCII и переводы строк
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $path = Join-Path (Get-Location).Path 'ZapretControl.bat'
+          if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+            Write-Host '::error file=ZapretControl.bat::Файл не найден'
+            exit 1
+          }
+
+          $bytes = [System.IO.File]::ReadAllBytes($path)
+          $failed = $false
+
+          if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+            $failed = $true
+            Write-Host '::error file=ZapretControl.bat::BOM не допускается в .bat'
+          }
+
+          $nonAscii = New-Object System.Collections.Generic.List[int]
+          for ($i = 0; $i -lt $bytes.Length; $i++) {
+            if ($bytes[$i] -gt 127) { $nonAscii.Add($i) }
+          }
+          if ($nonAscii.Count -gt 0) {
+            $failed = $true
+            $first = $nonAscii[0]
+            Write-Host "::error file=ZapretControl.bat::Найдены байты > 127 в количестве $($nonAscii.Count), первый со смещения $first. Файл должен быть ASCII."
+          }
+
+          $crlf = 0
+          $loneLf = 0
+          $loneCr = 0
+          for ($i = 0; $i -lt $bytes.Length; $i++) {
+            if ($bytes[$i] -eq 13) {
+              if ($i + 1 -lt $bytes.Length -and $bytes[$i + 1] -eq 10) { $crlf++ } else { $loneCr++ }
+            }
+            elseif ($bytes[$i] -eq 10) {
+              if ($i -gt 0 -and $bytes[$i - 1] -eq 13) { } else { $loneLf++ }
+            }
+          }
+          if ($crlf -eq 0) {
+            $failed = $true
+            Write-Host '::error file=ZapretControl.bat::Не найден ни один перевод строки CRLF'
+          }
+          if ($loneLf -gt 0 -or $loneCr -gt 0) {
+            $failed = $true
+            Write-Host "::error file=ZapretControl.bat::Смешанные переводы строк: одиночных LF — $loneLf, одиночных CR — $loneCr"
+          }
+
+          $text = [System.Text.Encoding]::ASCII.GetString($bytes)
+          $required = @(
+            '%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe',
+            'ZapretControl.ps1',
+            'errorlevel',
+            'pause'
+          )
+          foreach ($needle in $required) {
+            if (-not $text.Contains($needle)) {
+              $failed = $true
+              Write-Host "::error file=ZapretControl.bat::Отсутствует обязательный фрагмент: $needle"
+            }
+          }
+          if (-not $text.Contains('%PS_EXE%')) {
+            $failed = $true
+            Write-Host '::error file=ZapretControl.bat::powershell.exe должен запускаться через переменную %PS_EXE% (полный путь), а не по PATH'
+          }
+          if (-not $text.Contains('exit /b')) {
+            $failed = $true
+            Write-Host '::error file=ZapretControl.bat::Не найден явный код возврата (exit /b)'
+          }
+
+          if ($failed) { exit 1 }
+          Write-Host "Лаунчер OK: ASCII, CRLF ($crlf), без BOM, полный путь к powershell.exe."

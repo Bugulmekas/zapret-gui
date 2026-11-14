@@ -166,40 +166,40 @@ function Get-Brush {
 
 $script:Themes = @{
     light = @{
-        Canvas = '#F5F5F7'; Surface = '#FFFFFF'; Ink = '#1D1D1F'; Body = '#3A3A3C'
-        Muted = '#6E6E73'; Hairline = '#E5E5EA'; Field = '#F2F2F7'; FieldHover = '#E9E9EE'
-        Accent = '#0071E3'; AccentText = '#FFFFFF'; Danger = '#D70015'; DangerSoft = '#FDECEB'
-        WindowBorder = '#D6D6DB'; NavActive = '#FFFFFF'; CheckBorder = '#C7C7CC'; CheckHover = '#8E8E93'
-        ListHover = '#F7F7F9'; FocusBorder = '#9CC7F2'; Selection = '#B3D7F7'; LogBg = '#FBFBFD'
-        CardBorder = '#E5E5EA'; ListSelected = '#F2F2F7'; MenuItemHover = '#F2F2F7'; Thumb = '#C7C7CC'; NavActiveText = '#1D1D1F'
-        Green = '#248A3D'; Red = '#D70015'; Orange = '#B25000'
-        LogText = '#3A3A3C'; LogGray = '#8E8E93'; LogCyan = '#0A6E9E'; LogBlue = '#0A5BB5'
-        PillOk = '#E8F6EC'; PillBad = '#FDECEB'; PillOkDot = '#34C759'; PillBadDot = '#FF3B30'
-        PillWarn = '#FFF4E5'; PillWarnDot = '#FF9500'
+        Canvas = '#F4F6F9'; Surface = '#FFFFFF'; Ink = '#141A22'; Body = '#3D4856'
+        Muted = '#647080'; Hairline = '#E4E8EE'; Field = '#EEF2F7'; FieldHover = '#E5EAF1'
+        Accent = '#2E6BE6'; AccentText = '#FFFFFF'; Danger = '#D92D20'; DangerSoft = '#FDECEA'
+        WindowBorder = '#DDE3EA'; NavActive = '#EAF0FA'; CheckBorder = '#C3CBD6'; CheckHover = '#7C8896'
+        ListHover = '#F4F7FB'; FocusBorder = '#2E6BE6'; Selection = '#C9DCFB'; LogBg = '#FAFBFD'
+        CardBorder = '#E4E8EE'; ListSelected = '#E8F0FB'; MenuItemHover = '#EFF3F8'; Thumb = '#C3CBD6'; NavActiveText = '#141A22'
+        Green = '#128A4B'; Red = '#D92D20'; Orange = '#B25E09'
+        LogText = '#3D4856'; LogGray = '#647080'; LogCyan = '#0B6E99'; LogBlue = '#1E56C8'
+        PillOk = '#E6F6EC'; PillBad = '#FDECEA'; PillOkDot = '#22C55E'; PillBadDot = '#EF4444'
+        PillWarn = '#FFF3DF'; PillWarnDot = '#F59E0B'; Sidebar = '#FBFCFE'
     }
     dark = @{
-        Canvas = '#111113'; Surface = '#1A1A1D'; Ink = '#F5F5F7'; Body = '#C7C7CC'
-        Muted = '#8E8E93'; Hairline = '#2A2A2F'; Field = '#26262A'; FieldHover = '#303036'
-        Accent = '#0A84FF'; AccentText = '#FFFFFF'; Danger = '#FF453A'; DangerSoft = '#33191A'
-        WindowBorder = '#2A2A2F'; NavActive = '#303036'; CheckBorder = '#56565C'; CheckHover = '#8E8E93'
-        ListHover = '#202024'; FocusBorder = '#0A84FF'; Selection = '#2F4C73'; LogBg = '#151517'
-        CardBorder = '#2A2A2F'; ListSelected = '#303036'; MenuItemHover = '#303036'; Thumb = '#56565C'; NavActiveText = '#F5F5F7'
-        Green = '#30D158'; Red = '#FF453A'; Orange = '#FF9F0A'
-        LogText = '#C7C7CC'; LogGray = '#8E8E93'; LogCyan = '#64D2FF'; LogBlue = '#0A84FF'
-        PillOk = '#17301F'; PillBad = '#331715'; PillOkDot = '#34C759'; PillBadDot = '#FF453A'
-        PillWarn = '#33240F'; PillWarnDot = '#FFB340'
+        Canvas = '#0E1014'; Surface = '#161A21'; Ink = '#E9EFF7'; Body = '#AAB5C4'
+        Muted = '#7A8595'; Hairline = '#232A35'; Field = '#1C222B'; FieldHover = '#242C38'
+        Accent = '#5E9EFF'; AccentText = '#07111F'; Danger = '#FF6B6B'; DangerSoft = '#2B1719'
+        WindowBorder = '#1E2530'; NavActive = '#1E2735'; CheckBorder = '#3A4557'; CheckHover = '#7A8595'
+        ListHover = '#191F28'; FocusBorder = '#5E9EFF'; Selection = '#27405F'; LogBg = '#0A0D11'
+        CardBorder = '#202834'; ListSelected = '#1D2836'; MenuItemHover = '#1C222B'; Thumb = '#3A4557'; NavActiveText = '#E9EFF7'
+        Green = '#4ADE80'; Red = '#FF6B6B'; Orange = '#F7B955'
+        LogText = '#AAB5C4'; LogGray = '#7A8595'; LogCyan = '#67D8FF'; LogBlue = '#8AB4FF'
+        PillOk = '#0F2A1B'; PillBad = '#2B1719'; PillOkDot = '#34D399'; PillBadDot = '#FF6B6B'
+        PillWarn = '#2E220E'; PillWarnDot = '#FBBF24'; Sidebar = '#0A0C10'
     }
     neon = @{
-        Canvas = '#0D1117'; Surface = '#0E1626'; Ink = '#E7F2FF'; Body = '#A9BCD6'
-        Muted = '#7C8DA6'; Hairline = '#1C2B45'; Field = '#111C2E'; FieldHover = '#16233A'
-        Accent = '#00F5FF'; AccentText = '#04121A'; Danger = '#FF2BD6'; DangerSoft = '#2A0F2A'
-        WindowBorder = '#1C2B45'; NavActive = '#16233A'; CheckBorder = '#2A3E5E'; CheckHover = '#00F5FF'
-        ListHover = '#13203A'; FocusBorder = '#00F5FF'; Selection = '#193A55'; LogBg = '#0A101C'
-        CardBorder = '#22406B'; ListSelected = '#16324F'; MenuItemHover = '#16324F'; Thumb = '#1E5C6B'; NavActiveText = '#00F5FF'
-        Green = '#3DF5A5'; Red = '#FF5470'; Orange = '#FFC24B'
-        LogText = '#A9BCD6'; LogGray = '#64748B'; LogCyan = '#00F5FF'; LogBlue = '#7A5CFF'
-        PillOk = '#0C2A24'; PillBad = '#2A0F2A'; PillOkDot = '#3DF5A5'; PillBadDot = '#FF2BD6'
-        PillWarn = '#2A1F0A'; PillWarnDot = '#FFC24B'
+        Canvas = '#070B12'; Surface = '#0C1420'; Ink = '#E6F3FF'; Body = '#9FB3CC'
+        Muted = '#6E8299'; Hairline = '#17263B'; Field = '#0F1B2B'; FieldHover = '#16263A'
+        Accent = '#22D3EE'; AccentText = '#04141A'; Danger = '#FF4D8D'; DangerSoft = '#2A0F1E'
+        WindowBorder = '#17263B'; NavActive = '#14243A'; CheckBorder = '#24405E'; CheckHover = '#22D3EE'
+        ListHover = '#0F1D30'; FocusBorder = '#22D3EE'; Selection = '#17395A'; LogBg = '#050A12'
+        CardBorder = '#19304B'; ListSelected = '#122A45'; MenuItemHover = '#122A45'; Thumb = '#1E4E66'; NavActiveText = '#22D3EE'
+        Green = '#34F5C5'; Red = '#FF4D8D'; Orange = '#FFC24B'
+        LogText = '#9FB3CC'; LogGray = '#5E748C'; LogCyan = '#22D3EE'; LogBlue = '#7A5CFF'
+        PillOk = '#072A24'; PillBad = '#2A0F1E'; PillOkDot = '#34F5C5'; PillBadDot = '#FF4D8D'
+        PillWarn = '#2A1F0A'; PillWarnDot = '#FFC24B'; Sidebar = '#05080E'
     }
 }
 
@@ -318,17 +318,15 @@ function Apply-Theme {
     $script:CurrentPalette = $palette
     Set-ThemeBrushVars $palette
 
+    # Кисти, которые код задаёт напрямую, перекрашиваем в одном месте.
     if ($script:Window) {
         $themeButtons = @{ light = 'ThemeLight'; dark = 'ThemeDark'; neon = 'ThemeNeon' }
         foreach ($key in $themeButtons.Keys) {
             $button = $script:Window.FindName($themeButtons[$key])
             if ($button) { $button.IsChecked = ($key -eq $Name) }
         }
-        if (Get-Command -Name Update-LogTheme -ErrorAction SilentlyContinue) {
-            Update-LogTheme $oldPalette
-        }
-        if (Get-Command -Name Set-AdminPill -ErrorAction SilentlyContinue) {
-            Set-AdminPill ([bool](Test-IsAdmin))
+        if (Get-Command -Name Update-ThemeSurfaces -ErrorAction SilentlyContinue) {
+            Update-ThemeSurfaces -PreviousPalette $oldPalette
         }
         if (Get-Command -Name Update-AllStatus -ErrorAction SilentlyContinue) {
             try { Update-AllStatus } catch { }
@@ -346,7 +344,7 @@ $windowXaml = @'
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="Zapret Control — управление zapret-discord-youtube (форк Bugulmek)"
-        Width="1280" Height="940" MinWidth="1080" MinHeight="760"
+        Width="1200" Height="820" MinWidth="1000" MinHeight="640"
         WindowStartupLocation="CenterScreen" Background="#111113"
         FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="14"
         TextOptions.TextFormattingMode="Display" UseLayoutRounding="True"
@@ -385,7 +383,8 @@ $windowXaml = @'
     <SolidColorBrush x:Key="PillBadDot" Color="#FF453A"/>
     <SolidColorBrush x:Key="PillWarn" Color="#33240F"/>
     <SolidColorBrush x:Key="PillWarnDot" Color="#FFB340"/>
-    <SolidColorBrush x:Key="CardBorder" Color="#2A2A2F"/>
+    <SolidColorBrush x:Key="CardBorder" Color="#202834"/>
+    <SolidColorBrush x:Key="Sidebar" Color="#0A0C10"/>
     <SolidColorBrush x:Key="TitleBrush" Color="#F5F5F7"/>
     <SolidColorBrush x:Key="NavActiveText" Color="#F5F5F7"/>
     <SolidColorBrush x:Key="Thumb" Color="#56565C"/>
@@ -411,22 +410,22 @@ $windowXaml = @'
       <Setter Property="Background" Value="{DynamicResource Surface}"/>
       <Setter Property="BorderBrush" Value="{DynamicResource CardBorder}"/>
       <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="CornerRadius" Value="14"/>
+      <Setter Property="CornerRadius" Value="12"/>
       <Setter Property="Padding" Value="18"/>
-      <Setter Property="Margin" Value="0,0,0,12"/>
+      <Setter Property="Margin" Value="0,0,0,14"/>
     </Style>
 
     <Style x:Key="ZcCardTitle" TargetType="TextBlock">
-      <Setter Property="FontSize" Value="14.5"/>
+      <Setter Property="FontSize" Value="13.5"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
       <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
     </Style>
 
     <Style x:Key="ZcHint" TargetType="TextBlock">
-      <Setter Property="FontSize" Value="12.5"/>
+      <Setter Property="FontSize" Value="12"/>
       <Setter Property="Foreground" Value="{DynamicResource Muted}"/>
       <Setter Property="TextWrapping" Value="Wrap"/>
-      <Setter Property="LineHeight" Value="18"/>
+      <Setter Property="LineHeight" Value="17"/>
     </Style>
 
     <Style x:Key="ZcBody" TargetType="TextBlock">
@@ -444,15 +443,15 @@ $windowXaml = @'
     </Style>
 
     <Style x:Key="ZcPageTitle" TargetType="TextBlock">
-      <Setter Property="FontSize" Value="19"/>
+      <Setter Property="FontSize" Value="18"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
       <Setter Property="Foreground" Value="{DynamicResource TitleBrush}"/>
     </Style>
 
     <Style x:Key="ZcButtonBase" TargetType="Button">
-      <Setter Property="Height" Value="38"/>
-      <Setter Property="Padding" Value="16,0"/>
-      <Setter Property="FontSize" Value="13.5"/>
+      <Setter Property="Height" Value="36"/>
+      <Setter Property="Padding" Value="14,0"/>
+      <Setter Property="FontSize" Value="13"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
       <Setter Property="Cursor" Value="Hand"/>
       <Setter Property="BorderThickness" Value="0"/>
@@ -579,6 +578,40 @@ $windowXaml = @'
                                       Opacity="0.12" Color="#000000"/>
                   </Setter.Value>
                 </Setter>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="ZcSideNav" TargetType="RadioButton">
+      <Setter Property="Foreground" Value="{DynamicResource Muted}"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Margin" Value="0,0,0,2"/>
+      <Setter Property="HorizontalContentAlignment" Value="Left"/>
+      <Setter Property="FocusVisualStyle" Value="{StaticResource ZcFocus}"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="RadioButton">
+            <Border x:Name="Bd" CornerRadius="9" Background="Transparent">
+              <Grid>
+                <Border x:Name="Mark" Width="3" Height="16" HorizontalAlignment="Left"
+                        CornerRadius="2" Background="{DynamicResource Accent}" Visibility="Collapsed"/>
+                <ContentPresenter Margin="13,9,10,9" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                  TextElement.Foreground="{TemplateBinding Foreground}"/>
+              </Grid>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource FieldHover}"/>
+              </Trigger>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource NavActive}"/>
+                <Setter TargetName="Mark" Property="Visibility" Value="Visible"/>
+                <Setter Property="Foreground" Value="{DynamicResource NavActiveText}"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
               </Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
@@ -886,11 +919,9 @@ $windowXaml = @'
   <Border BorderBrush="{DynamicResource WindowBorder}" BorderThickness="1" Background="{DynamicResource Canvas}">
     <Grid>
       <Grid.RowDefinitions>
-        <RowDefinition Height="92"/>
-        <RowDefinition Height="76"/>
+        <RowDefinition Height="64"/>
         <RowDefinition Height="*"/>
-        <RowDefinition Height="Auto"/>
-        <RowDefinition Height="34"/>
+        <RowDefinition Height="30"/>
       </Grid.RowDefinitions>
 
       <!-- Шапка -->
@@ -899,50 +930,49 @@ $windowXaml = @'
           <ColumnDefinition Width="*"/>
           <ColumnDefinition Width="Auto"/>
         </Grid.ColumnDefinitions>
-        <StackPanel Grid.Column="0" Margin="30,18,0,0" VerticalAlignment="Center">
-          <StackPanel Orientation="Horizontal">
-            <TextBlock Text="Zapret Control" FontSize="26" FontWeight="SemiBold"
-                       Foreground="{DynamicResource TitleBrush}" Effect="{DynamicResource TitleGlow}"
-                       VerticalAlignment="Center"/>
-            <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Hairline}"
-                    BorderThickness="1" CornerRadius="999" Padding="9,2" Margin="12,5,0,0"
-                    VerticalAlignment="Center">
-              <TextBlock x:Name="VersionChipText" Text="1.3.0" FontSize="11.5"
-                         FontWeight="SemiBold" Foreground="{DynamicResource Muted}"/>
-            </Border>
-          </StackPanel>
-          <TextBlock x:Name="HeaderSubtitle" Text="Управление zapret-discord-youtube"
-                     FontSize="12.5" Foreground="{DynamicResource Muted}" Margin="1,5,0,0"/>
-        </StackPanel>
-        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,14,0">
-          <Border Background="{DynamicResource Field}" CornerRadius="9"
-                  Padding="2" Margin="0,0,12,0" VerticalAlignment="Center">
-            <StackPanel Orientation="Horizontal">
-              <RadioButton x:Name="ThemeLight" Content="Светлая" GroupName="Theme"
-                           Style="{StaticResource ZcTheme}" Tag="light"/>
-              <RadioButton x:Name="ThemeDark" Content="Тёмная" GroupName="Theme"
-                           Style="{StaticResource ZcTheme}" Tag="dark"/>
-              <RadioButton x:Name="ThemeNeon" Content="Неон" GroupName="Theme"
-                           Style="{StaticResource ZcTheme}" Tag="neon"/>
-            </StackPanel>
+
+        <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="22,0,0,0" VerticalAlignment="Center">
+          <Border Width="30" Height="30" CornerRadius="9" Background="{DynamicResource Accent}"
+                  Effect="{DynamicResource PrimaryGlow}">
+            <TextBlock Text="Z" FontSize="16" FontWeight="Bold"
+                       Foreground="{DynamicResource AccentText}"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
           </Border>
+          <StackPanel Margin="11,0,0,0" VerticalAlignment="Center">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Text="Zapret Control" FontSize="18" FontWeight="SemiBold"
+                         Foreground="{DynamicResource TitleBrush}" Effect="{DynamicResource TitleGlow}"
+                         VerticalAlignment="Center"/>
+              <Border Background="{DynamicResource Field}" BorderBrush="{DynamicResource Hairline}"
+                      BorderThickness="1" CornerRadius="999" Padding="8,1" Margin="10,0,0,0"
+                      VerticalAlignment="Center">
+                <TextBlock x:Name="VersionChipText" Text="1.3.0" FontSize="10.5"
+                           FontWeight="SemiBold" Foreground="{DynamicResource Muted}"/>
+              </Border>
+            </StackPanel>
+            <TextBlock x:Name="HeaderSubtitle" Text="Управление zapret-discord-youtube"
+                       FontSize="11.5" Foreground="{DynamicResource Muted}" Margin="0,2,0,0"/>
+          </StackPanel>
+        </StackPanel>
+
+        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0">
           <Border x:Name="VpnPill" Background="{DynamicResource PillWarn}" CornerRadius="999"
-                  Padding="12,6" Margin="0,0,12,0" VerticalAlignment="Center" Visibility="Collapsed"
+                  Padding="10,5" Margin="0,0,8,0" VerticalAlignment="Center" Visibility="Collapsed"
                   ToolTip="VPN и zapret вместе обычно отключают интернет">
             <StackPanel Orientation="Horizontal">
               <Ellipse x:Name="VpnPillDot" Width="7" Height="7" Fill="{DynamicResource PillWarnDot}"
                        VerticalAlignment="Center"/>
-              <TextBlock x:Name="VpnPillText" Text="VPN активен" FontSize="12"
+              <TextBlock x:Name="VpnPillText" Text="VPN активен" FontSize="11.5"
                          FontWeight="SemiBold" Foreground="{DynamicResource Ink}"
                          Margin="7,0,0,0" VerticalAlignment="Center"/>
             </StackPanel>
           </Border>
           <Border x:Name="AdminPill" Background="{DynamicResource PillOk}" CornerRadius="999"
-                  Padding="12,6" Margin="0,0,12,0" VerticalAlignment="Center">
+                  Padding="10,5" Margin="0,0,10,0" VerticalAlignment="Center">
             <StackPanel Orientation="Horizontal">
               <Ellipse x:Name="AdminPillDot" Width="7" Height="7" Fill="{DynamicResource PillOkDot}"
                        VerticalAlignment="Center"/>
-              <TextBlock x:Name="AdminPillText" Text="администратор" FontSize="12"
+              <TextBlock x:Name="AdminPillText" Text="администратор" FontSize="11.5"
                          FontWeight="SemiBold" Foreground="{DynamicResource Ink}"
                          Margin="7,0,0,0" VerticalAlignment="Center"/>
             </StackPanel>
@@ -951,434 +981,477 @@ $windowXaml = @'
           <Button x:Name="BtnClose" Content="✕" Style="{StaticResource ZcWindowButton}" ToolTip="Закрыть"/>
         </StackPanel>
       </Grid>
+      <Border Grid.Row="0" Height="1" VerticalAlignment="Bottom" Background="{DynamicResource HeaderLineBrush}"/>
 
-      <Border Grid.Row="0" Height="1" VerticalAlignment="Bottom"
-              Background="{DynamicResource HeaderLineBrush}"/>
-
-      <!-- Состояние -->
-      <Border Grid.Row="1" Margin="30,4,30,0" Style="{StaticResource ZcCard}" Padding="0">
-        <Grid Height="64">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="*"/>
-          </Grid.ColumnDefinitions>
-
-          <Border Grid.Row="0" Grid.Column="0" BorderBrush="{DynamicResource Hairline}" BorderThickness="0,0,1,0" Padding="22,0">
-            <StackPanel VerticalAlignment="Center">
-              <TextBlock Text="Режим zapret" Style="{StaticResource ZcFieldLabel}" Margin="0,0,0,3"/>
-              <TextBlock x:Name="StatusService" Text="—" FontSize="15" FontWeight="SemiBold"
-                         Foreground="{DynamicResource Ink}" TextTrimming="CharacterEllipsis"/>
-            </StackPanel>
-          </Border>
-          <Border Grid.Row="0" Grid.Column="1" BorderBrush="{DynamicResource Hairline}" BorderThickness="0,0,1,0" Padding="22,0">
-            <StackPanel VerticalAlignment="Center">
-              <TextBlock Text="winws.exe" Style="{StaticResource ZcFieldLabel}" Margin="0,0,0,3"/>
-              <TextBlock x:Name="StatusWinws" Text="—" FontSize="15" FontWeight="SemiBold"
-                         Foreground="{DynamicResource Ink}" TextTrimming="CharacterEllipsis"/>
-            </StackPanel>
-          </Border>
-          <Border Grid.Row="0" Grid.Column="2" BorderBrush="{DynamicResource Hairline}" BorderThickness="0,0,1,0" Padding="22,0">
-            <StackPanel VerticalAlignment="Center">
-              <TextBlock Text="Стратегия службы" Style="{StaticResource ZcFieldLabel}" Margin="0,0,0,3"/>
-              <TextBlock x:Name="StatusStrategy" Text="—" FontSize="15" FontWeight="SemiBold"
-                         Foreground="{DynamicResource Ink}" TextTrimming="CharacterEllipsis"/>
-            </StackPanel>
-          </Border>
-          <Border Grid.Row="0" Grid.Column="3" BorderBrush="{DynamicResource Hairline}" BorderThickness="0,0,1,0" Padding="22,0">
-            <StackPanel VerticalAlignment="Center">
-              <TextBlock Text="IPSet" Style="{StaticResource ZcFieldLabel}" Margin="0,0,0,3"/>
-              <TextBlock x:Name="StatusIpset" Text="—" FontSize="15" FontWeight="SemiBold"
-                         Foreground="{DynamicResource Ink}" TextTrimming="CharacterEllipsis"/>
-            </StackPanel>
-          </Border>
-          <Border Grid.Row="0" Grid.Column="4" Padding="22,0">
-            <StackPanel VerticalAlignment="Center">
-              <TextBlock Text="WinDivert" Style="{StaticResource ZcFieldLabel}" Margin="0,0,0,3"/>
-              <TextBlock x:Name="StatusWinDivert" Text="—" FontSize="15" FontWeight="SemiBold"
-                         Foreground="{DynamicResource Ink}" TextTrimming="CharacterEllipsis"/>
-            </StackPanel>
-          </Border>
-        </Grid>
-      </Border>
-
-      <!-- Тело -->
-      <Grid Grid.Row="2" Margin="30,12,30,0">
+      <!-- Рабочая область -->
+      <Grid Grid.Row="1" ClipToBounds="True">
         <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="320"/>
+          <ColumnDefinition Width="216"/>
           <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
-        <Border Grid.Column="0" Style="{StaticResource ZcCard}" Padding="0" Margin="0,0,16,0">
-          <Grid>
+        <!-- Боковая навигация -->
+        <Border Grid.Column="0" Background="{DynamicResource Sidebar}" ClipToBounds="True"
+                BorderBrush="{DynamicResource Hairline}" BorderThickness="0,0,1,0">
+          <Grid Margin="12,16,12,12">
             <Grid.RowDefinitions>
-              <RowDefinition Height="Auto"/>
-              <RowDefinition Height="Auto"/>
-              <RowDefinition Height="*"/>
-              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="*" MinHeight="0"/>
               <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
-            <TextBlock Grid.Row="0" Text="Стратегии" Style="{StaticResource ZcCardTitle}" Margin="18,16,18,0"/>
-            <TextBlock Grid.Row="1" Text="Двойной клик — запуск" Style="{StaticResource ZcHint}" Margin="18,3,18,10"/>
-            <ListBox x:Name="LstStrategies" Grid.Row="2" Style="{StaticResource ZcList}" Margin="10,0,10,8"/>
-            <TextBlock x:Name="LblServiceUsing" Grid.Row="3" Text="Служба использует: —"
-                       Style="{StaticResource ZcHint}" Margin="19,8,19,10" TextTrimming="CharacterEllipsis"/>
-            <Grid Grid.Row="4" Margin="10,0,10,12">
-              <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-              </Grid.RowDefinitions>
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/>
-              </Grid.ColumnDefinitions>
-              <Button x:Name="BtnStart" Grid.Row="0" Grid.Column="0" Content="Запустить"
-                      Style="{StaticResource ZcPrimarySmall}" Margin="0,0,5,8"/>
-              <Button x:Name="BtnStop" Grid.Row="0" Grid.Column="1" Content="Остановить"
-                      Style="{StaticResource ZcSecondarySmall}" Margin="5,0,0,8"/>
-              <Button x:Name="BtnInstall" Grid.Row="1" Grid.Column="0" Content="Установить службу"
-                      Style="{StaticResource ZcSecondarySmall}" Margin="0,0,5,0"/>
-              <Button x:Name="BtnRemove" Grid.Row="1" Grid.Column="1" Content="Удалить службу"
-                      Style="{StaticResource ZcSecondarySmall}" Margin="5,0,0,0"
-                      Foreground="{DynamicResource Danger}"/>
-            </Grid>
-          </Grid>
-        </Border>
 
-        <Border Grid.Column="1" Style="{StaticResource ZcCard}" Padding="0">
-          <Grid>
-            <Grid.RowDefinitions>
-              <RowDefinition Height="52"/>
-              <RowDefinition Height="1"/>
-              <RowDefinition Height="*"/>
-            </Grid.RowDefinitions>
-            <Border Grid.Row="0" Margin="14,9,14,7" Background="{DynamicResource Field}"
-                    CornerRadius="10" Padding="3" HorizontalAlignment="Left">
-              <StackPanel Orientation="Horizontal">
-                <RadioButton x:Name="NavService" Content="Служба" GroupName="Nav" IsChecked="True" Style="{StaticResource ZcNav}" Tag="0"/>
-                <RadioButton x:Name="NavSettings" Content="Настройки" GroupName="Nav" Style="{StaticResource ZcNav}" Tag="1"/>
-                <RadioButton x:Name="NavTools" Content="Инструменты" GroupName="Nav" Style="{StaticResource ZcNav}" Tag="2"/>
-                <RadioButton x:Name="NavTests" Content="Тест" GroupName="Nav" Style="{StaticResource ZcNav}" Tag="3"/>
-                <RadioButton x:Name="NavUpdate" Content="Обновление" GroupName="Nav" Style="{StaticResource ZcNav}" Tag="4"/>
-              </StackPanel>
-            </Border>
-            <Border Grid.Row="1" Background="{DynamicResource NavLineBrush}"/>
-            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-              <Grid Margin="22,18,22,20">
-
-                <!-- Раздел: Служба -->
-                <StackPanel x:Name="PageService">
-                  <TextBlock Text="Служба" Style="{StaticResource ZcPageTitle}"/>
-                  <TextBlock Text="Запуск стратегий, установка и удаление службы Windows."
-                             Style="{StaticResource ZcHint}" Margin="2,6,0,16"/>
-                  <Border Style="{StaticResource ZcCard}">
-                    <StackPanel>
-                      <TextBlock Text="Служба Windows «zapret»" Style="{StaticResource ZcCardTitle}"/>
-                      <TextBlock Text="Закрепляет стратегию в системе и запускает её при старте Windows."
-                                 Style="{StaticResource ZcHint}" Margin="0,6,0,16"/>
-                      <CheckBox x:Name="ChkAutostart" Content="Запускать службу автоматически при старте Windows"
-                                Style="{StaticResource ZcCheck}"/>
-                      <WrapPanel Margin="0,16,0,0">
-                        <Button x:Name="BtnStartService" Content="Запустить службу" Width="172"
-                                Style="{StaticResource ZcPrimary}" Margin="0,0,10,10"/>
-                        <Button x:Name="BtnStopService" Content="Остановить службу" Width="172"
-                                Style="{StaticResource ZcSecondary}" Margin="0,0,10,10"/>
-                        <Button x:Name="BtnRestartService" Content="Перезапустить" Width="172"
-                                Style="{StaticResource ZcSecondary}" Margin="0,0,10,10"/>
-                        <Button x:Name="BtnRemoveService" Content="Удалить службу" Width="172"
-                                Style="{StaticResource ZcSecondary}" Margin="0,0,10,10"
-                                Foreground="{DynamicResource Danger}"/>
-                        <Button x:Name="BtnServiceBat" Content="Меню service.bat" Width="172"
-                                Style="{StaticResource ZcSecondary}" Margin="0,0,10,10"/>
-                        <Button x:Name="BtnOpenRoot" Content="Папка zapret" Width="152"
-                                Style="{StaticResource ZcSecondary}" Margin="0,0,0,10"/>
-                      </WrapPanel>
-                    </StackPanel>
-                  </Border>
+            <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled" MinHeight="0">
+              <StackPanel>
+              <RadioButton x:Name="NavService" AutomationProperties.Name="Обзор" GroupName="Nav" IsChecked="True"
+                           Style="{StaticResource ZcSideNav}" Tag="0">
+                <StackPanel Orientation="Horizontal">
+                  <TextBlock Text="&#xE80F;" FontFamily="Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center"/>
+                  <TextBlock Text="Обзор" Margin="10,0,0,0" VerticalAlignment="Center"/>
                 </StackPanel>
-
-                <!-- Раздел: Настройки -->
-                <StackPanel x:Name="PageSettings" Visibility="Collapsed">
-                  <TextBlock Text="Настройки" Style="{StaticResource ZcPageTitle}"/>
-                  <TextBlock Text="Игровой фильтр, IPSet и пользовательские списки."
-                             Style="{StaticResource ZcHint}" Margin="2,6,0,16"/>
-                  <Border Style="{StaticResource ZcCard}">
-                    <StackPanel>
-                      <TextBlock Text="Игровой фильтр" Style="{StaticResource ZcCardTitle}"/>
-                      <TextBlock Text="Сужает порты, к которым применяется обход."
-                                 Style="{StaticResource ZcHint}" Margin="0,6,0,16"/>
-                      <Grid>
-                        <Grid.ColumnDefinitions>
-                          <ColumnDefinition Width="190"/>
-                          <ColumnDefinition Width="16"/>
-                          <ColumnDefinition Width="150"/>
-                          <ColumnDefinition Width="16"/>
-                          <ColumnDefinition Width="150"/>
-                          <ColumnDefinition Width="16"/>
-                          <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0">
-                          <TextBlock Text="Режим" Style="{StaticResource ZcFieldLabel}"/>
-                          <ComboBox x:Name="CbGameMode" Style="{StaticResource ZcCombo}" SelectedIndex="0">
-                            <ComboBoxItem Content="Выключен"/>
-                            <ComboBoxItem Content="TCP и UDP"/>
-                            <ComboBoxItem Content="Только TCP"/>
-                            <ComboBoxItem Content="Только UDP"/>
-                          </ComboBox>
-                        </StackPanel>
-                        <StackPanel Grid.Column="2">
-                          <TextBlock Text="TCP-порты" Style="{StaticResource ZcFieldLabel}"/>
-                          <TextBox x:Name="TxtGameTcp" Text="1024-65535" Style="{StaticResource ZcTextInput}"/>
-                        </StackPanel>
-                        <StackPanel Grid.Column="4">
-                          <TextBlock Text="UDP-порты" Style="{StaticResource ZcFieldLabel}"/>
-                          <TextBox x:Name="TxtGameUdp" Text="1024-65535" Style="{StaticResource ZcTextInput}"/>
-                        </StackPanel>
-                        <Button x:Name="BtnApplyGame" Grid.Column="6" Content="Применить" Width="130"
-                                Style="{StaticResource ZcPrimary}" VerticalAlignment="Bottom"/>
-                      </Grid>
-                      <TextBlock Text="Формат: 1024-65535 или 1024-1934,1936-65535. Нужен перезапуск zapret."
-                                 Style="{StaticResource ZcHint}" Margin="0,14,0,0"/>
-                    </StackPanel>
-                  </Border>
-
-                  <Border Style="{StaticResource ZcCard}">
-                    <StackPanel>
-                      <TextBlock Text="IPSet-фильтр" Style="{StaticResource ZcCardTitle}"/>
-                      <TextBlock Text="loaded — по списку, none — только исключения, any — без списка."
-                                 Style="{StaticResource ZcHint}" Margin="0,6,0,16"/>
-                      <StackPanel Orientation="Horizontal">
-                        <StackPanel Width="240">
-                          <TextBlock Text="Режим" Style="{StaticResource ZcFieldLabel}"/>
-                          <ComboBox x:Name="CbIpset" Style="{StaticResource ZcCombo}" SelectedIndex="0">
-                            <ComboBoxItem Content="Любой (any)"/>
-                            <ComboBoxItem Content="Отключён (none)"/>
-                            <ComboBoxItem Content="Загружен (loaded)"/>
-                          </ComboBox>
-                        </StackPanel>
-                        <Button x:Name="BtnApplyIpset" Content="Применить" Width="120"
-                                Style="{StaticResource ZcPrimary}" Margin="16,20,10,0" VerticalAlignment="Top"/>
-                        <Button x:Name="BtnUpdateIpset" Content="Обновить IPSet" Width="160"
-                                Style="{StaticResource ZcSecondary}" Margin="0,20,0,0" VerticalAlignment="Top"/>
-                      </StackPanel>
-                      <TextBlock Text="Скачивает свежий список с GitHub в lists\ipset-all.txt."
-                                 Style="{StaticResource ZcHint}" Margin="0,14,0,0"/>
-                    </StackPanel>
-                  </Border>
-
-                  <Border Style="{StaticResource ZcCard}">
-                    <StackPanel>
-                      <TextBlock Text="Автопроверка обновлений пакета" Style="{StaticResource ZcCardTitle}"/>
-                      <CheckBox x:Name="ChkBatUpdates" Style="{StaticResource ZcCheck}" Margin="0,12,0,0"
-                                Content="Проверять обновления при запуске general*.bat"/>
-                      <TextBlock Text="Встроенная проверка пакета (utils\check_updates.enabled)."
-                                 Style="{StaticResource ZcHint}" Margin="0,8,0,0"/>
-                    </StackPanel>
-                  </Border>
-
-                  <Border Style="{StaticResource ZcCard}" Margin="0">
-                    <StackPanel>
-                      <TextBlock Text="Пользовательские списки" Style="{StaticResource ZcCardTitle}"/>
-                      <TextBlock Text="Файлы *-user.txt откроются в Блокноте."
-                                 Style="{StaticResource ZcHint}" Margin="0,6,0,14"/>
-                      <WrapPanel>
-                        <Button x:Name="BtnListGeneral" Content="Общие домены" Width="168"
-                                Style="{StaticResource ZcSecondary}" Margin="0,0,10,10"/>
-                        <Button x:Name="BtnListExclude" Content="Исключения" Width="168"
-                                Style="{StaticResource ZcSecondary}" Margin="0,0,10,10"/>
-                        <Button x:Name="BtnListIpset" Content="IP-исключения" Width="168"
-                                Style="{StaticResource ZcSecondary}" Margin="0,0,10,10"/>
-                        <Button x:Name="BtnListFolder" Content="Папка lists" Width="152"
-                                Style="{StaticResource ZcSecondary}" Margin="0,0,0,10"/>
-                      </WrapPanel>
-                    </StackPanel>
-                  </Border>
+              </RadioButton>
+              <RadioButton x:Name="NavSettings" AutomationProperties.Name="Настройки" GroupName="Nav" Style="{StaticResource ZcSideNav}" Tag="1">
+                <StackPanel Orientation="Horizontal">
+                  <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center"/>
+                  <TextBlock Text="Настройки" Margin="10,0,0,0" VerticalAlignment="Center"/>
                 </StackPanel>
-
-                <!-- Раздел: Инструменты -->
-                <StackPanel x:Name="PageTools" Visibility="Collapsed">
-                  <TextBlock Text="Сервисные действия" Style="{StaticResource ZcPageTitle}"/>
-                  <TextBlock Text="Результат выполнения — в журнале внизу."
-                             Style="{StaticResource ZcHint}" Margin="2,6,0,16"/>
-                  <Border Style="{StaticResource ZcCard}" Margin="0">
-                    <StackPanel>
-                      <UniformGrid Columns="3">
-                        <Button x:Name="BtnToolIpset" Content="Обновить IPSet" Height="44"
-                                Style="{StaticResource ZcSecondary}" Margin="0,0,10,10"/>
-                        <Button x:Name="BtnToolHosts" Content="Обновить hosts" Height="44"
-                                Style="{StaticResource ZcSecondary}" Margin="0,0,10,10"/>
-                        <Button x:Name="BtnToolDiag" Content="Диагностика" Height="44"
-                                Style="{StaticResource ZcPrimary}" Margin="0,0,0,10"/>
-                        <Button x:Name="BtnToolFakes" Content="Заменить active fake" Height="44"
-                                Style="{StaticResource ZcSecondary}" Margin="0,0,10,10"/>
-                        <Button x:Name="BtnToolDiscord" Content="Очистить кэш Discord" Height="44"
-                                Style="{StaticResource ZcSecondary}" Margin="0,0,10,10"/>
-                        <Button x:Name="BtnToolWinDivert" Content="Убрать конфликт WinDivert" Height="44"
-                                Style="{StaticResource ZcSecondary}" Margin="0,0,0,10"/>
-                        <Button x:Name="BtnToolOpenData" Content="Папка данных" Height="44"
-                                Style="{StaticResource ZcSecondary}" Margin="0,0,10,0"/>
-                        <Button x:Name="BtnToolServiceBat" Content="Меню service.bat" Height="44"
-                                Style="{StaticResource ZcSecondary}" Margin="0,0,10,0"/>
-                        <Button x:Name="BtnChooseFolder" Content="Выбрать папку zapret" Height="44"
-                                Style="{StaticResource ZcSecondary}" Margin="0,0,0,0"/>
-                      </UniformGrid>
-                    </StackPanel>
-                  </Border>
+              </RadioButton>
+              <RadioButton x:Name="NavTools" AutomationProperties.Name="Инструменты" GroupName="Nav" Style="{StaticResource ZcSideNav}" Tag="2">
+                <StackPanel Orientation="Horizontal">
+                  <TextBlock Text="&#xE90F;" FontFamily="Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center"/>
+                  <TextBlock Text="Инструменты" Margin="10,0,0,0" VerticalAlignment="Center"/>
                 </StackPanel>
-
-                <!-- Раздел: Тест стратегий -->
-                <StackPanel x:Name="PageTests" Visibility="Collapsed">
-                  <TextBlock Text="Тест стратегий" Style="{StaticResource ZcPageTitle}"/>
-                  <TextBlock Text="Штатный тест из utils\test zapret.ps1 — тот же, что пункт 12 меню service.bat."
-                             Style="{StaticResource ZcHint}" Margin="2,6,0,16"/>
-                  <Border Style="{StaticResource ZcCard}">
-                    <StackPanel>
-                      <TextBlock Text="Проверяет Discord, YouTube и другие цели по очереди. Занимает несколько минут; служба и winws.exe будут остановлены автоматически."
-                                 Style="{StaticResource ZcHint}" Margin="0,0,0,16"/>
-                      <WrapPanel>
-                        <Button x:Name="BtnRunTests" Content="Запустить тест" Width="220" Height="44"
-                                Style="{StaticResource ZcPrimary}" Margin="0,0,10,10"/>
-                        <Button x:Name="BtnTestResults" Content="Папка результатов" Width="220" Height="44"
-                                Style="{StaticResource ZcSecondary}" Margin="0,0,0,10"/>
-                      </WrapPanel>
-                    </StackPanel>
-                  </Border>
-                  <Border Style="{StaticResource ZcCard}" Margin="0">
-                    <StackPanel>
-                      <TextBlock Text="Быстрая проверка" Style="{StaticResource ZcCardTitle}"/>
-                      <TextBlock Text="Discord, YouTube, Google и Cloudflare через curl."
-                                 Style="{StaticResource ZcHint}" Margin="0,6,0,14"/>
-                      <Button x:Name="BtnQuickCheck" Content="Проверить соединение" Width="220" Height="40"
-                              Style="{StaticResource ZcSecondary}" HorizontalAlignment="Left"/>
-                    </StackPanel>
-                  </Border>
+              </RadioButton>
+              <RadioButton x:Name="NavTests" AutomationProperties.Name="Тесты" GroupName="Nav" Style="{StaticResource ZcSideNav}" Tag="3">
+                <StackPanel Orientation="Horizontal">
+                  <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center"/>
+                  <TextBlock Text="Тесты" Margin="10,0,0,0" VerticalAlignment="Center"/>
                 </StackPanel>
-
-                <!-- Раздел: Обновление -->
-                <StackPanel x:Name="PageUpdate" Visibility="Collapsed">
-                  <TextBlock Text="Обновление" Style="{StaticResource ZcPageTitle}"/>
-                  <TextBlock Text="Источник: github.com/Flowseal/zapret-discord-youtube · GUI / форк: Bugulmek"
-                             Style="{StaticResource ZcHint}" Margin="2,6,0,16"/>
-                  <Border Style="{StaticResource ZcCard}">
-                    <StackPanel>
-                      <Border Background="{DynamicResource Field}" CornerRadius="10" Padding="14,12">
-                        <StackPanel>
-                          <TextBlock x:Name="LblUpdateLocal" Text="Установленная версия: —"
-                                     FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource Ink}"/>
-                          <TextBlock x:Name="LblUpdateLatest" Text="Последняя на GitHub: —"
-                                     FontSize="12.5" Foreground="{DynamicResource Muted}" Margin="0,4,0,0"/>
-                          <TextBlock x:Name="LblUpdateStatus" Text="Проверка ещё не выполнялась"
-                                     FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource Muted}"
-                                     Margin="0,10,0,0"/>
-                        </StackPanel>
-                      </Border>
-                      <WrapPanel Margin="0,14,0,0">
-                        <Button x:Name="BtnCheckUpdates" Content="Проверить обновления" Width="190"
-                                Style="{StaticResource ZcSecondary}" Margin="0,0,10,10"/>
-                        <Button x:Name="BtnInstallUpdate" Content="Скачать и установить" Width="190"
-                                Style="{StaticResource ZcPrimary}" Margin="0,0,10,10" IsEnabled="False"/>
-                        <Button x:Name="LinkReleases" Content="Страница релизов на GitHub"
-                                Style="{StaticResource ZcGhost}" Margin="0,0,0,10"/>
-                      </WrapPanel>
-                      <CheckBox x:Name="ChkStartupUpdates" Style="{StaticResource ZcCheck}" Margin="0,6,0,0"
-                                Content="Проверять обновления zapret и GUI при запуске"/>
-                      <TextBlock Text="Новая версия zapret ставится рядом; списки и настройки переносятся."
-                                 Style="{StaticResource ZcHint}" Margin="0,10,0,0"/>
-                    </StackPanel>
-                  </Border>
-                  <Border Style="{StaticResource ZcCard}" Margin="0">
-                    <StackPanel>
-                      <TextBlock Text="Обновление Zapret Control" Style="{StaticResource ZcCardTitle}"/>
-                      <TextBlock Text="Новая версия GUI скачивается с github.com/Bugulmekas/zapret-gui."
-                                 Style="{StaticResource ZcHint}" Margin="0,6,0,14"/>
-                      <Border Background="{DynamicResource Field}" CornerRadius="10" Padding="14,12">
-                        <StackPanel>
-                          <TextBlock x:Name="LblGuiLocal" Text="Установлено: —"
-                                     FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource Ink}"/>
-                          <TextBlock x:Name="LblGuiLatest" Text="Последняя на GitHub: —"
-                                     FontSize="12.5" Foreground="{DynamicResource Muted}" Margin="0,4,0,0"/>
-                          <TextBlock x:Name="LblGuiStatus" Text="Проверка ещё не выполнялась"
-                                     FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource Muted}"
-                                     Margin="0,10,0,0"/>
-                        </StackPanel>
-                      </Border>
-                      <WrapPanel Margin="0,14,0,0">
-                        <Button x:Name="BtnGuiCheck" Content="Проверить GUI" Width="150"
-                                Style="{StaticResource ZcSecondary}" Margin="0,0,10,10"/>
-                        <Button x:Name="BtnGuiUpdate" Content="Обновить GUI" Width="160"
-                                Style="{StaticResource ZcPrimary}" Margin="0,0,10,10" IsEnabled="False"/>
-                        <Button x:Name="LinkGuiReleases" Content="Релизы GUI на GitHub"
-                                Style="{StaticResource ZcGhost}" Margin="0,0,0,10"/>
-                      </WrapPanel>
-                      <TextBlock Text="Скрипты заменяются на месте, настройки в data\config.json сохраняются, приложение перезапустится."
-                                 Style="{StaticResource ZcHint}" Margin="0,10,0,0"/>
-                    </StackPanel>
-                  </Border>
-                  <Border Style="{StaticResource ZcCard}" Margin="0">
-                    <StackPanel>
-                      <TextBlock Text="Описание релиза" Style="{StaticResource ZcCardTitle}"/>
-                      <TextBox x:Name="TxtReleaseNotes" Style="{StaticResource ZcTextArea}" Height="230"
-                               Margin="0,12,0,0" IsReadOnly="True" FontSize="12.5"
-                               Text="Нажмите «Проверить обновления», чтобы получить информацию с GitHub."/>
-                    </StackPanel>
-                  </Border>
+              </RadioButton>
+              <RadioButton x:Name="NavUpdate" AutomationProperties.Name="Обновление" GroupName="Nav" Style="{StaticResource ZcSideNav}" Tag="4">
+                <StackPanel Orientation="Horizontal">
+                  <TextBlock Text="&#xE895;" FontFamily="Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center"/>
+                  <TextBlock Text="Обновление" Margin="10,0,0,0" VerticalAlignment="Center"/>
                 </StackPanel>
+              </RadioButton>
 
-              </Grid>
+            </StackPanel>
             </ScrollViewer>
-          </Grid>
-        </Border>
-      </Grid>
 
-      <!-- Журнал -->
-      <Border Grid.Row="3" Margin="30,10,30,10" Style="{StaticResource ZcCard}" Padding="0">
-        <Grid>
-          <Grid.RowDefinitions>
-            <RowDefinition Height="42"/>
-            <RowDefinition Height="1"/>
-            <RowDefinition Height="Auto"/>
-          </Grid.RowDefinitions>
-          <Grid Grid.Row="0" Margin="18,0,14,0">
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="*"/>
-              <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" Text="Журнал" Style="{StaticResource ZcCardTitle}"
-                       VerticalAlignment="Center"/>
-            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-              <CheckBox x:Name="ChkAutoScroll" Content="Автопрокрутка" Style="{StaticResource ZcCheck}"
-                        FontSize="12" Margin="0,0,14,0" IsChecked="True"/>
-              <Button x:Name="BtnSaveLog" Content="Сохранить" Style="{StaticResource ZcSmall}" Margin="0,0,8,0"/>
-              <Button x:Name="BtnClearLog" Content="Очистить" Style="{StaticResource ZcSmall}" Margin="0,0,8,0"/>
-              <Button x:Name="BtnToggleLog" Content="Развернуть" Style="{StaticResource ZcSmall}"/>
+            <StackPanel Grid.Row="1">
+              <Border Height="1" Background="{DynamicResource Hairline}" Margin="4,0,4,10"/>
+              <Button x:Name="BtnAboutFooter" Content="О программе" Style="{StaticResource ZcGhost}"
+                      HorizontalAlignment="Left" Margin="2,0,0,0"/>
+              <TextBlock x:Name="FooterVersion" Text="1.3.0 · MIT" FontSize="11"
+                         Foreground="{DynamicResource Muted}" Margin="10,2,0,2"/>
             </StackPanel>
           </Grid>
-          <Border Grid.Row="1" Background="{DynamicResource Hairline}"/>
-          <RichTextBox x:Name="RtbLog" Grid.Row="2" Height="176" Visibility="Collapsed"
-                       BorderThickness="0" Background="{DynamicResource LogBg}"
-                       FontFamily="Cascadia Mono, Consolas, Courier New" FontSize="12"
-                       Foreground="{DynamicResource Body}" IsReadOnly="True" IsUndoEnabled="False"
-                       VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                       SelectionBrush="{DynamicResource Selection}">
-            <FlowDocument PagePadding="0"/>
-          </RichTextBox>
+        </Border>
+
+        <!-- Контент -->
+        <Grid Grid.Column="1" Margin="26,18,26,0">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+          </Grid.RowDefinitions>
+
+          <ScrollViewer x:Name="PageScroll" Grid.Row="0" MinHeight="0"
+                        VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <Grid MaxWidth="980" HorizontalAlignment="Stretch" Margin="0,0,0,6">
+
+              <!-- Обзор -->
+              <StackPanel x:Name="PageService">
+                <TextBlock Text="Обзор" Style="{StaticResource ZcPageTitle}"/>
+                <TextBlock Text="Состояние zapret и запуск выбранной стратегии."
+                           Style="{StaticResource ZcHint}" Margin="1,4,0,18"/>
+
+                <Border Style="{StaticResource ZcCard}">
+                  <StackPanel>
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                      <TextBlock Text="Режим zapret" Style="{StaticResource ZcFieldLabel}"/>
+                      <TextBlock x:Name="StatusService" Text="—" FontSize="22" FontWeight="SemiBold"
+                                 Foreground="{DynamicResource Ink}" TextTrimming="CharacterEllipsis"/>
+                      <TextBlock x:Name="StatusWinws" Text="—" FontSize="12.5"
+                                 Foreground="{DynamicResource Muted}" Margin="0,5,0,0"
+                                 TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="18,0,0,0">
+                      <Button x:Name="BtnStart" Content="Запустить" Width="128"
+                              Style="{StaticResource ZcPrimary}" Margin="0,0,8,0"/>
+                      <Button x:Name="BtnStop" Content="Остановить" Width="128"
+                              Style="{StaticResource ZcSecondary}"/>
+                    </StackPanel>
+                  </Grid>
+
+                  <Border Background="{DynamicResource Field}" CornerRadius="10" Padding="14,10" Margin="0,16,0,0">
+                    <Grid>
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                      </Grid.ColumnDefinitions>
+                      <StackPanel Grid.Column="0">
+                        <TextBlock Text="Стратегия службы" Style="{StaticResource ZcFieldLabel}"/>
+                        <TextBlock x:Name="StatusStrategy" Text="—" FontSize="12.5"
+                                   Foreground="{DynamicResource Ink}" TextTrimming="CharacterEllipsis"/>
+                      </StackPanel>
+                      <StackPanel Grid.Column="1">
+                        <TextBlock Text="IPSet" Style="{StaticResource ZcFieldLabel}"/>
+                        <TextBlock x:Name="StatusIpset" Text="—" FontSize="12.5"
+                                   Foreground="{DynamicResource Ink}" TextTrimming="CharacterEllipsis"/>
+                      </StackPanel>
+                      <StackPanel Grid.Column="2">
+                        <TextBlock Text="WinDivert" Style="{StaticResource ZcFieldLabel}"/>
+                        <TextBlock x:Name="StatusWinDivert" Text="—" FontSize="12.5"
+                                   Foreground="{DynamicResource Ink}" TextTrimming="CharacterEllipsis"/>
+                      </StackPanel>
+                    </Grid>
+                  </Border>
+                  </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource ZcCard}">
+                  <StackPanel>
+                    <Grid>
+                      <TextBlock Text="Стратегии" Style="{StaticResource ZcCardTitle}" VerticalAlignment="Center"/>
+                      <TextBlock Text="Двойной клик — запуск" Style="{StaticResource ZcHint}"
+                                 HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                    </Grid>
+                    <ListBox x:Name="LstStrategies" Style="{StaticResource ZcList}"
+                             Height="224" Margin="0,10,0,6"/>
+                    <TextBlock x:Name="LblServiceUsing" Text="Служба использует: —"
+                               Style="{StaticResource ZcHint}" Margin="2,0,0,0"
+                               TextTrimming="CharacterEllipsis"/>
+                  </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource ZcCard}">
+                  <StackPanel>
+                    <TextBlock Text="Служба Windows" Style="{StaticResource ZcCardTitle}"/>
+                    <TextBlock Text="Автозапуск и управление фоновой службой zapret."
+                               Style="{StaticResource ZcHint}" Margin="0,4,0,12"/>
+                    <CheckBox x:Name="ChkAutostart" Content="Запускать службу при старте Windows"
+                              Style="{StaticResource ZcCheck}"/>
+                    <WrapPanel Margin="0,14,0,0">
+                      <Button x:Name="BtnInstall" Content="Установить службу" Width="168"
+                              Style="{StaticResource ZcPrimary}" Margin="0,0,8,8"/>
+                      <Button x:Name="BtnStartService" Content="Запустить" Width="132"
+                              Style="{StaticResource ZcSecondary}" Margin="0,0,8,8"/>
+                      <Button x:Name="BtnStopService" Content="Остановить" Width="132"
+                              Style="{StaticResource ZcSecondary}" Margin="0,0,8,8"/>
+                      <Button x:Name="BtnRestartService" Content="Перезапустить" Width="140"
+                              Style="{StaticResource ZcSecondary}" Margin="0,0,8,8"/>
+                      <Button x:Name="BtnRemoveService" Content="Удалить службу" Width="148"
+                              Style="{StaticResource ZcDangerText}" Margin="0,0,0,8"/>
+                    </WrapPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                      <Button x:Name="BtnServiceBat" Content="Меню service.bat"
+                              Style="{StaticResource ZcGhost}" Margin="0,0,2,0"/>
+                      <Button x:Name="BtnOpenRoot" Content="Папка zapret"
+                              Style="{StaticResource ZcGhost}"/>
+                    </StackPanel>
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+
+              <!-- Настройки -->
+              <StackPanel x:Name="PageSettings" Visibility="Collapsed">
+                <TextBlock Text="Настройки" Style="{StaticResource ZcPageTitle}"/>
+                <TextBlock Text="Игровой фильтр, IPSet и пользовательские списки."
+                           Style="{StaticResource ZcHint}" Margin="1,4,0,18"/>
+
+                <Border Style="{StaticResource ZcCard}">
+                  <StackPanel>
+                    <TextBlock Text="Игровой фильтр" Style="{StaticResource ZcCardTitle}"/>
+                    <TextBlock Text="Сужает порты, к которым применяется обход."
+                               Style="{StaticResource ZcHint}" Margin="0,4,0,14"/>
+                    <Grid>
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="190"/>
+                        <ColumnDefinition Width="14"/>
+                        <ColumnDefinition Width="150"/>
+                        <ColumnDefinition Width="14"/>
+                        <ColumnDefinition Width="150"/>
+                        <ColumnDefinition Width="*"/>
+                      </Grid.ColumnDefinitions>
+                      <StackPanel Grid.Column="0">
+                        <TextBlock Text="Режим" Style="{StaticResource ZcFieldLabel}"/>
+                        <ComboBox x:Name="CbGameMode" Style="{StaticResource ZcCombo}" SelectedIndex="0">
+                          <ComboBoxItem Content="Выключен"/>
+                          <ComboBoxItem Content="TCP и UDP"/>
+                          <ComboBoxItem Content="Только TCP"/>
+                          <ComboBoxItem Content="Только UDP"/>
+                        </ComboBox>
+                      </StackPanel>
+                      <StackPanel Grid.Column="2">
+                        <TextBlock Text="TCP-порты" Style="{StaticResource ZcFieldLabel}"/>
+                        <TextBox x:Name="TxtGameTcp" Text="1024-65535" Style="{StaticResource ZcTextInput}"/>
+                      </StackPanel>
+                      <StackPanel Grid.Column="4">
+                        <TextBlock Text="UDP-порты" Style="{StaticResource ZcFieldLabel}"/>
+                        <TextBox x:Name="TxtGameUdp" Text="1024-65535" Style="{StaticResource ZcTextInput}"/>
+                      </StackPanel>
+                      <Button x:Name="BtnApplyGame" Grid.Column="5" Content="Применить" Width="130"
+                              Style="{StaticResource ZcPrimary}" VerticalAlignment="Bottom"
+                              HorizontalAlignment="Right"/>
+                    </Grid>
+                    <TextBlock Text="Формат: 1024-65535 или 1024-1934,1936-65535. Нужен перезапуск zapret."
+                               Style="{StaticResource ZcHint}" Margin="0,12,0,0"/>
+                  </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource ZcCard}">
+                  <StackPanel>
+                    <TextBlock Text="IPSet-фильтр" Style="{StaticResource ZcCardTitle}"/>
+                    <TextBlock Text="loaded — по списку, none — только исключения, any — без списка."
+                               Style="{StaticResource ZcHint}" Margin="0,4,0,14"/>
+                    <StackPanel Orientation="Horizontal">
+                      <StackPanel Width="230">
+                        <TextBlock Text="Режим" Style="{StaticResource ZcFieldLabel}"/>
+                        <ComboBox x:Name="CbIpset" Style="{StaticResource ZcCombo}" SelectedIndex="0">
+                          <ComboBoxItem Content="Любой (any)"/>
+                          <ComboBoxItem Content="Отключён (none)"/>
+                          <ComboBoxItem Content="Загружен (loaded)"/>
+                        </ComboBox>
+                      </StackPanel>
+                      <Button x:Name="BtnApplyIpset" Content="Применить" Width="120"
+                              Style="{StaticResource ZcPrimary}" Margin="14,20,8,0" VerticalAlignment="Top"/>
+                      <Button x:Name="BtnUpdateIpset" Content="Обновить IPSet" Width="156"
+                              Style="{StaticResource ZcSecondary}" Margin="0,20,0,0" VerticalAlignment="Top"/>
+                    </StackPanel>
+                    <TextBlock Text="Скачивает свежий список с GitHub в lists\ipset-all.txt."
+                               Style="{StaticResource ZcHint}" Margin="0,12,0,0"/>
+                  </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource ZcCard}">
+                  <StackPanel>
+                    <TextBlock Text="Пакет и списки" Style="{StaticResource ZcCardTitle}"/>
+                    <TextBlock Text="Пользовательские файлы *-user.txt открываются в Блокноте."
+                               Style="{StaticResource ZcHint}" Margin="0,4,0,12"/>
+                    <WrapPanel>
+                      <Button x:Name="BtnListGeneral" Content="Общие домены" Width="160"
+                              Style="{StaticResource ZcSecondary}" Margin="0,0,8,8"/>
+                      <Button x:Name="BtnListExclude" Content="Исключения" Width="150"
+                              Style="{StaticResource ZcSecondary}" Margin="0,0,8,8"/>
+                      <Button x:Name="BtnListIpset" Content="IP-исключения" Width="160"
+                              Style="{StaticResource ZcSecondary}" Margin="0,0,8,8"/>
+                      <Button x:Name="BtnListFolder" Content="Папка lists" Width="140"
+                              Style="{StaticResource ZcSecondary}" Margin="0,0,0,8"/>
+                    </WrapPanel>
+                    <CheckBox x:Name="ChkBatUpdates" Style="{StaticResource ZcCheck}" Margin="0,6,0,0"
+                              Content="Проверять обновления пакета при запуске general*.bat"/>
+                    <TextBlock Text="Встроенная проверка пакета (utils\check_updates.enabled)."
+                               Style="{StaticResource ZcHint}" Margin="0,8,0,0"/>
+                  </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource ZcCard}">
+                  <StackPanel>
+                    <TextBlock Text="Оформление" Style="{StaticResource ZcCardTitle}"/>
+                    <TextBlock Text="Тема применяется сразу и сохраняется в настройках."
+                               Style="{StaticResource ZcHint}" Margin="0,4,0,12"/>
+                    <Border Background="{DynamicResource Field}" CornerRadius="10" Padding="3"
+                            HorizontalAlignment="Left">
+                      <StackPanel Orientation="Horizontal">
+                        <RadioButton x:Name="ThemeLight" Content="Светлая" GroupName="Theme"
+                                     Style="{StaticResource ZcTheme}" Tag="light" MinWidth="86"/>
+                        <RadioButton x:Name="ThemeDark" Content="Тёмная" GroupName="Theme"
+                                     Style="{StaticResource ZcTheme}" Tag="dark" MinWidth="86"/>
+                        <RadioButton x:Name="ThemeNeon" Content="Неон" GroupName="Theme"
+                                     Style="{StaticResource ZcTheme}" Tag="neon" MinWidth="78"/>
+                      </StackPanel>
+                    </Border>
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+
+              <!-- Инструменты -->
+              <StackPanel x:Name="PageTools" Visibility="Collapsed">
+                <TextBlock Text="Инструменты" Style="{StaticResource ZcPageTitle}"/>
+                <TextBlock Text="Сервисные действия. Результат выполнения — в журнале."
+                           Style="{StaticResource ZcHint}" Margin="1,4,0,18"/>
+                <Border Style="{StaticResource ZcCard}">
+                  <UniformGrid Columns="3">
+                    <Button x:Name="BtnToolIpset" Content="Обновить IPSet" Height="42"
+                            Style="{StaticResource ZcSecondary}" Margin="0,0,8,8"/>
+                    <Button x:Name="BtnToolHosts" Content="Обновить hosts" Height="42"
+                            Style="{StaticResource ZcSecondary}" Margin="0,0,8,8"/>
+                    <Button x:Name="BtnToolDiag" Content="Диагностика" Height="42"
+                            Style="{StaticResource ZcPrimary}" Margin="0,0,0,8"/>
+                    <Button x:Name="BtnToolFakes" Content="Заменить active fake" Height="42"
+                            Style="{StaticResource ZcSecondary}" Margin="0,0,8,8"/>
+                    <Button x:Name="BtnToolDiscord" Content="Очистить кэш Discord" Height="42"
+                            Style="{StaticResource ZcSecondary}" Margin="0,0,8,8"/>
+                    <Button x:Name="BtnToolWinDivert" Content="Убрать конфликт WinDivert" Height="42"
+                            Style="{StaticResource ZcSecondary}" Margin="0,0,0,8"/>
+                    <Button x:Name="BtnToolOpenData" Content="Папка данных" Height="42"
+                            Style="{StaticResource ZcSecondary}" Margin="0,0,8,0"/>
+                    <Button x:Name="BtnToolServiceBat" Content="Меню service.bat" Height="42"
+                            Style="{StaticResource ZcSecondary}" Margin="0,0,8,0"/>
+                    <Button x:Name="BtnChooseFolder" Content="Выбрать папку zapret" Height="42"
+                            Style="{StaticResource ZcSecondary}" Margin="0,0,0,0"/>
+                  </UniformGrid>
+                </Border>
+              </StackPanel>
+
+              <!-- Тесты -->
+              <StackPanel x:Name="PageTests" Visibility="Collapsed">
+                <TextBlock Text="Тесты" Style="{StaticResource ZcPageTitle}"/>
+                <TextBlock Text="Штатная проверка и быстрая диагностика соединения."
+                           Style="{StaticResource ZcHint}" Margin="1,4,0,18"/>
+                <Border Style="{StaticResource ZcCard}">
+                  <StackPanel>
+                    <TextBlock Text="Тест стратегий" Style="{StaticResource ZcCardTitle}"/>
+                    <TextBlock Text="Проверяет Discord, YouTube и другие цели по очереди. Занимает несколько минут; служба и winws.exe будут остановлены автоматически."
+                               Style="{StaticResource ZcHint}" Margin="0,4,0,14"/>
+                    <WrapPanel>
+                      <Button x:Name="BtnRunTests" Content="Запустить тест" Width="200"
+                              Style="{StaticResource ZcPrimary}" Margin="0,0,8,8"/>
+                      <Button x:Name="BtnTestResults" Content="Папка результатов" Width="200"
+                              Style="{StaticResource ZcSecondary}" Margin="0,0,0,8"/>
+                    </WrapPanel>
+                  </StackPanel>
+                </Border>
+                <Border Style="{StaticResource ZcCard}">
+                  <StackPanel>
+                    <TextBlock Text="Быстрая проверка" Style="{StaticResource ZcCardTitle}"/>
+                    <TextBlock Text="Discord, YouTube, Google и Cloudflare через curl."
+                               Style="{StaticResource ZcHint}" Margin="0,4,0,12"/>
+                    <Button x:Name="BtnQuickCheck" Content="Проверить соединение" Width="200"
+                            Style="{StaticResource ZcSecondary}" HorizontalAlignment="Left"/>
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+
+              <!-- Обновление -->
+              <StackPanel x:Name="PageUpdate" Visibility="Collapsed">
+                <TextBlock Text="Обновление" Style="{StaticResource ZcPageTitle}"/>
+                <TextBlock Text="Источник: github.com/Flowseal/zapret-discord-youtube · GUI / форк: Bugulmek"
+                           Style="{StaticResource ZcHint}" Margin="1,4,0,18"/>
+
+                <Border Style="{StaticResource ZcCard}">
+                  <StackPanel>
+                    <TextBlock Text="Пакет zapret" Style="{StaticResource ZcCardTitle}"/>
+                    <Border Background="{DynamicResource Field}" CornerRadius="10" Padding="14,12" Margin="0,12,0,0">
+                      <StackPanel>
+                        <TextBlock x:Name="LblUpdateLocal" Text="Установленная версия: —"
+                                   FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource Ink}"/>
+                        <TextBlock x:Name="LblUpdateLatest" Text="Последняя на GitHub: —"
+                                   FontSize="12" Foreground="{DynamicResource Muted}" Margin="0,4,0,0"/>
+                        <TextBlock x:Name="LblUpdateStatus" Text="Проверка ещё не выполнялась"
+                                   FontSize="12.5" FontWeight="SemiBold" Foreground="{DynamicResource Muted}"
+                                   Margin="0,10,0,0"/>
+                      </StackPanel>
+                    </Border>
+                    <WrapPanel Margin="0,12,0,0">
+                      <Button x:Name="BtnCheckUpdates" Content="Проверить обновления" Width="184"
+                              Style="{StaticResource ZcSecondary}" Margin="0,0,8,8"/>
+                      <Button x:Name="BtnInstallUpdate" Content="Скачать и установить" Width="184"
+                              Style="{StaticResource ZcPrimary}" Margin="0,0,8,8" IsEnabled="False"/>
+                      <Button x:Name="LinkReleases" Content="Страница релизов"
+                              Style="{StaticResource ZcGhost}" Margin="0,0,0,8"/>
+                    </WrapPanel>
+                    <CheckBox x:Name="ChkStartupUpdates" Style="{StaticResource ZcCheck}" Margin="0,4,0,0"
+                              Content="Проверять обновления zapret и GUI при запуске"/>
+                    <TextBlock Text="Новая версия zapret ставится рядом; списки и настройки переносятся."
+                               Style="{StaticResource ZcHint}" Margin="0,10,0,0"/>
+                  </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource ZcCard}">
+                  <StackPanel>
+                    <TextBlock Text="Zapret Control" Style="{StaticResource ZcCardTitle}"/>
+                    <Border Background="{DynamicResource Field}" CornerRadius="10" Padding="14,12" Margin="0,12,0,0">
+                      <StackPanel>
+                        <TextBlock x:Name="LblGuiLocal" Text="Установлено: —"
+                                   FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource Ink}"/>
+                        <TextBlock x:Name="LblGuiLatest" Text="Последняя на GitHub: —"
+                                   FontSize="12" Foreground="{DynamicResource Muted}" Margin="0,4,0,0"/>
+                        <TextBlock x:Name="LblGuiStatus" Text="Проверка ещё не выполнялась"
+                                   FontSize="12.5" FontWeight="SemiBold" Foreground="{DynamicResource Muted}"
+                                   Margin="0,10,0,0"/>
+                      </StackPanel>
+                    </Border>
+                    <WrapPanel Margin="0,12,0,0">
+                      <Button x:Name="BtnGuiCheck" Content="Проверить GUI" Width="150"
+                              Style="{StaticResource ZcSecondary}" Margin="0,0,8,8"/>
+                      <Button x:Name="BtnGuiUpdate" Content="Обновить GUI" Width="160"
+                              Style="{StaticResource ZcPrimary}" Margin="0,0,8,8" IsEnabled="False"/>
+                      <Button x:Name="LinkGuiReleases" Content="Релизы GUI"
+                              Style="{StaticResource ZcGhost}" Margin="0,0,0,8"/>
+                    </WrapPanel>
+                    <TextBlock Text="Скрипты заменяются на месте, настройки в data\config.json сохраняются, приложение перезапустится."
+                               Style="{StaticResource ZcHint}" Margin="0,8,0,0"/>
+                  </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource ZcCard}">
+                  <StackPanel>
+                    <TextBlock Text="Описание релиза" Style="{StaticResource ZcCardTitle}"/>
+                    <TextBox x:Name="TxtReleaseNotes" Style="{StaticResource ZcTextArea}" Height="200"
+                             Margin="0,12,0,0" IsReadOnly="True" FontSize="12"
+                             Text="Нажмите «Проверить обновления», чтобы получить информацию с GitHub."/>
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+
+            </Grid>
+          </ScrollViewer>
+
+          <!-- Журнал -->
+          <Border Grid.Row="1" Style="{StaticResource ZcCard}" Padding="0" Margin="0,10,0,14"
+                  MaxWidth="980" MinHeight="0" ClipToBounds="True">
+            <Grid HorizontalAlignment="Stretch">
+              <Grid.RowDefinitions>
+                <RowDefinition Height="42"/>
+                <RowDefinition Height="1"/>
+                <RowDefinition Height="Auto" MinHeight="0"/>
+              </Grid.RowDefinitions>
+              <Grid Grid.Row="0" Margin="16,0,12,0" ClipToBounds="True">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" MinWidth="0"/>
+                  <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="Журнал" Style="{StaticResource ZcCardTitle}"
+                           VerticalAlignment="Center" Margin="0,0,14,0"
+                           TextTrimming="CharacterEllipsis"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                  <CheckBox x:Name="ChkAutoScroll" Content="Автопрокрутка" Style="{StaticResource ZcCheck}"
+                            FontSize="11.5" Margin="0,0,14,0" VerticalAlignment="Center" IsChecked="True"/>
+                  <Button x:Name="BtnSaveLog" Content="Сохранить" Style="{StaticResource ZcSmall}" Margin="0,0,6,0"/>
+                  <Button x:Name="BtnClearLog" Content="Очистить" Style="{StaticResource ZcSmall}" Margin="0,0,6,0"/>
+                  <Button x:Name="BtnToggleLog" Content="Развернуть" Style="{StaticResource ZcSmall}"/>
+                </StackPanel>
+              </Grid>
+              <Border Grid.Row="1" Background="{DynamicResource Hairline}"/>
+              <RichTextBox x:Name="RtbLog" Grid.Row="2" Height="220" MinHeight="96" MaxHeight="240"
+                           Visibility="Collapsed"
+                           BorderThickness="0" Background="{DynamicResource LogBg}"
+                           FontFamily="Cascadia Mono, Consolas, Courier New" FontSize="11.5"
+                           Foreground="{DynamicResource Body}" IsReadOnly="True" IsUndoEnabled="False"
+                           VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                           SelectionBrush="{DynamicResource Selection}">
+                <FlowDocument PagePadding="0"/>
+              </RichTextBox>
+            </Grid>
+          </Border>
         </Grid>
-      </Border>
+      </Grid>
 
       <!-- Статус-бар -->
-      <Border Grid.Row="4" BorderBrush="{DynamicResource NavLineBrush}" BorderThickness="0,1,0,0"
+      <Border Grid.Row="2" BorderBrush="{DynamicResource Hairline}" BorderThickness="0,1,0,0"
               Background="{DynamicResource Canvas}">
-        <Grid Margin="30,0">
+        <Grid Margin="22,0">
           <TextBlock x:Name="StatusLabel" Text="Готово" FontSize="11.5"
                      Foreground="{DynamicResource Muted}" VerticalAlignment="Center"/>
-          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-            <Button x:Name="BtnAboutFooter" Content="О программе" Style="{StaticResource ZcGhost}"
-                    Height="24" Margin="0,0,8,0"/>
-            <TextBlock x:Name="FooterVersion" Text="1.3.0 · MIT" FontSize="11.5"
-                       Foreground="{DynamicResource Muted}" VerticalAlignment="Center"/>
-          </StackPanel>
+          <TextBlock Text="Zapret Control · WPF" FontSize="11"
+                     Foreground="{DynamicResource Muted}" HorizontalAlignment="Right"
+                     VerticalAlignment="Center"/>
         </Grid>
       </Border>
 
@@ -1398,6 +1471,17 @@ try {
 
 $script:Form = $script:Window
 
+# Не даём окну выйти за рабочую область (1366x768, High-DPI, панель задач).
+try {
+    $work = [Windows.SystemParameters]::WorkArea
+    $maxWidth  = [Math]::Max(880, $work.Width  - 40)
+    $maxHeight = [Math]::Max(480, $work.Height - 40)
+    $script:Window.Width  = [Math]::Min($script:Window.Width,  $maxWidth)
+    $script:Window.Height = [Math]::Min($script:Window.Height, $maxHeight)
+    $script:Window.MinWidth  = [Math]::Min($script:Window.MinWidth,  $maxWidth)
+    $script:Window.MinHeight = [Math]::Min($script:Window.MinHeight, $maxHeight)
+} catch { }
+
 function Get-Ui {
     param([string]$Name)
     return $script:Window.FindName($Name)
@@ -1405,12 +1489,14 @@ function Get-Ui {
 
 $script:LstStrategies     = Get-Ui 'LstStrategies'
 $script:RtbLog            = Get-Ui 'RtbLog'
+$script:PageScroll        = Get-Ui 'PageScroll'
 $script:StatusLabel       = Get-Ui 'StatusLabel'
 $script:AdminPill         = Get-Ui 'AdminPill'
 $script:AdminPillText     = Get-Ui 'AdminPillText'
 $script:AdminPillDot      = Get-Ui 'AdminPillDot'
 $script:VpnPill           = Get-Ui 'VpnPill'
 $script:VpnPillText       = Get-Ui 'VpnPillText'
+$script:VpnPillDot        = Get-Ui 'VpnPillDot'
 $script:ChkAutostart      = Get-Ui 'ChkAutostart'
 $script:ChkBatUpdates     = Get-Ui 'ChkBatUpdates'
 $script:ChkAutoScroll     = Get-Ui 'ChkAutoScroll'
@@ -1472,7 +1558,7 @@ function Write-UiLog {
     if (-not $brush) { $brush = $script:BrLogText }
 
     $document = $script:RtbLog.Document
-    if ($document.Blocks.Count -gt 2600) { $script:RtbLog.Clear() }
+    if ($document.Blocks.Count -gt 2600) { $script:RtbLog.Document.Blocks.Clear() }
 
     $paragraph = New-Object Windows.Documents.Paragraph
     $paragraph.Margin = New-Object Windows.Thickness(0)
@@ -1683,6 +1769,57 @@ function Set-AdminPill {
     }
 }
 
+function Update-ThemeSurfaces {
+    param([hashtable]$PreviousPalette)
+
+    # Единая точка перекраски поверхностей, которым цвет задаётся из кода.
+    # Вызывается после Set-ThemeBrushVars, поэтому $script:Br* уже из новой палитры.
+
+    # 1. Админ-пилюля: снимаем артефакты прошлой темы (shimmer, glow, локальные кисти).
+    if ($script:AdminPill) {
+        $script:AdminPillShimmer = $false
+        $script:AdminPill.Effect = $null
+        $script:AdminPill.Background = $script:BrPillOk
+        $script:AdminPill.BorderBrush = $null
+    }
+    if ($script:AdminPillText) { $script:AdminPillText.Foreground = $script:BrInk }
+    if ($script:AdminPillDot) { $script:AdminPillDot.Fill = $script:BrPillOkDot }
+
+    # 2. VPN-пилюля.
+    if ($script:VpnPill) { $script:VpnPill.Background = $script:BrPillWarn }
+    if ($script:VpnPillText) { $script:VpnPillText.Foreground = $script:BrInk }
+    if ($script:VpnPillDot) { $script:VpnPillDot.Fill = $script:BrPillWarnDot }
+
+    # 3. Статус-бар и служебные подписи.
+    if ($script:StatusLabel) { $script:StatusLabel.Foreground = $script:BrMuted }
+    if ($script:LblUpdateStatus) { $script:LblUpdateStatus.Foreground = $script:BrMuted }
+    if ($script:LblGuiStatus) { $script:LblGuiStatus.Foreground = $script:BrMuted }
+
+    # 4. Журнал: фон/текст плюс уже выведенные строки из палитры прошлой темы.
+    if ($script:RtbLog) {
+        $script:RtbLog.Background = Get-Brush $script:CurrentPalette.LogBg
+        $script:RtbLog.Foreground = $script:BrBody
+    }
+    if ($PreviousPalette) { Update-LogTheme $PreviousPalette }
+
+    # 5. Фактическое состояние пилюль (неоновый shimmer включается только для neon).
+    if (Get-Command -Name Set-AdminPill -ErrorAction SilentlyContinue) {
+        try { Set-AdminPill ([bool](Test-IsAdmin)) } catch { }
+    }
+}
+
+function Update-LogDrawerMetrics {
+    # Журнал разворачивается не выше доли окна, чтобы не выдавливать страницу и статус-бар.
+    if (-not $script:Window -or -not $script:RtbLog) { return }
+    $windowHeight = $script:Window.ActualHeight
+    if ($windowHeight -le 0) { $windowHeight = $script:Window.Height }
+    if ($windowHeight -le 0) { return }
+    $available = $windowHeight - 64 - 30 - 18 - 42 - 1 - 24
+    $maxLog = [Math]::Max(96, [Math]::Min(240, $available * 0.4))
+    $maxLog = [Math]::Round($maxLog)
+    $script:RtbLog.MaxHeight = $maxLog
+    $script:RtbLog.Height = $maxLog
+}
 function Update-VpnPill {
     if (-not $script:VpnPill) { return }
     if (((Get-Date) - $script:VpnStateChecked).TotalSeconds -lt 10) { return }
@@ -2999,15 +3136,27 @@ function Install-GuiUpdateAction {
     if (-not (Confirm-Ui ("Скачать и установить Zapret Control $($release.Tag)?`n`nСкрипты будут заменены, настройки сохранятся.`nПосле установки приложение перезапустится.") 'Обновление GUI')) { return }
 
     $workDir = Join-Path $env:TEMP ('zapret-gui-update-' + [guid]::NewGuid().ToString('N'))
+    $files = @('ZapretControl.ps1', 'ZapretCommon.ps1', 'ZapretControl.bat')
+    $backupDir = $null
+    $tempFiles = New-Object System.Collections.ArrayList
 
     try {
         New-Item -ItemType Directory -Path $workDir -Force | Out-Null
 
-        $zipPath = Join-Path $workDir $release.AssetName
+        # Без хеша от GitHub обновление не выполняем: иначе целостность не проверяется.
+        $sha256 = [string]$release.AssetSha256
+        if ([string]::IsNullOrWhiteSpace($sha256)) {
+            throw 'GitHub не вернул SHA256 ассета — обновление отменено (нет проверки целостности).'
+        }
+        $safeName = Get-SafeAssetName -Name $release.AssetName
+        if (-not $safeName) { throw ('Недопустимое имя ассета: ' + $release.AssetName) }
+
+        $zipPath = Join-Path $workDir $safeName
         Set-BusyStatus 'Скачивание GUI...'
         Write-UiLog ('Скачивание GUI: ' + $release.AssetUrl) 'Cyan'
-        if (-not (Invoke-CurlDownload -Url $release.AssetUrl -OutFile $zipPath -TimeoutSec 600)) {
-            throw 'Не удалось скачать архив GUI.'
+        if (-not (Invoke-CurlDownload -Url $release.AssetUrl -OutFile $zipPath -TimeoutSec 600 `
+                    -ExpectedSha256 $sha256)) {
+            throw ('Не удалось скачать или проверить архив GUI: ' + $script:ZC_LastDownloadError)
         }
 
         Set-BusyStatus 'Распаковка архива...'
@@ -3033,7 +3182,6 @@ function Install-GuiUpdateAction {
         $backupDir = Join-Path $script:DataDir ('backup-' + $script:ZC_AppVersion)
         New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
 
-        $files = @('ZapretControl.ps1', 'ZapretCommon.ps1', 'ZapretControl.bat')
         foreach ($name in $files) {
             $current = Join-Path $script:AppDir $name
             if (Test-Path -LiteralPath $current) {
@@ -3044,8 +3192,19 @@ function Install-GuiUpdateAction {
         Set-BusyStatus 'Установка GUI...'
         foreach ($name in $files) {
             $candidate = Join-Path $sourceDir $name
-            if (Test-Path -LiteralPath $candidate) {
-                Copy-Item -LiteralPath $candidate -Destination (Join-Path $script:AppDir $name) -Force
+            if (-not (Test-Path -LiteralPath $candidate)) { continue }
+            $dest = Join-Path $script:AppDir $name
+            $tmp = Join-Path $script:AppDir ('.' + $name + '.new')
+            [void]$tempFiles.Add($tmp)
+
+            # Сначала новый файл целиком пишется рядом с целевым...
+            Copy-Item -LiteralPath $candidate -Destination $tmp -Force
+            # ...затем подменяет целевой в пределах тома (атомарно).
+            if (Test-Path -LiteralPath $dest) {
+                try { [IO.File]::Replace($tmp, $dest, $null) }
+                catch { Move-Item -LiteralPath $tmp -Destination $dest -Force }
+            } else {
+                Move-Item -LiteralPath $tmp -Destination $dest -Force
             }
         }
 
@@ -3068,10 +3227,32 @@ function Install-GuiUpdateAction {
         })
         $script:RestartTimer.Start()
     } catch {
-        Write-UiLog ('Ошибка обновления GUI: ' + $_.Exception.Message) 'Red'
-        Show-UiError $_.Exception.Message 'Обновление GUI'
+        $errorMessage = $_.Exception.Message
+
+        # Откат: возвращаем рабочие файлы из резервной копии.
+        $restored = $false
+        if ($backupDir) {
+            foreach ($name in $files) {
+                $backup = Join-Path $backupDir $name
+                if (Test-Path -LiteralPath $backup) {
+                    try {
+                        Copy-Item -LiteralPath $backup -Destination (Join-Path $script:AppDir $name) -Force
+                        $restored = $true
+                    } catch { }
+                }
+            }
+        }
+
+        $suffix = if ($restored) { ' (выполнен откат)' } else { '' }
+        Write-UiLog ('Ошибка обновления GUI: ' + $errorMessage + $suffix) 'Red'
+        Show-UiError ($errorMessage + $suffix) 'Обновление GUI'
         Set-BusyStatus 'Ошибка обновления GUI'
     } finally {
+        foreach ($tmp in $tempFiles) {
+            if ($tmp -and (Test-Path -LiteralPath $tmp)) {
+                Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
+            }
+        }
         if (Test-Path -LiteralPath $workDir) {
             Remove-Item -LiteralPath $workDir -Recurse -Force -ErrorAction SilentlyContinue
         }
@@ -3101,11 +3282,15 @@ function Install-UpdateAction {
     try {
         New-Item -ItemType Directory -Path $workDir -Force | Out-Null
 
-        $zipPath = Join-Path $workDir $release.AssetName
+        $safeName = Get-SafeAssetName -Name $release.AssetName
+        if (-not $safeName) { throw ('Недопустимое имя ассета: ' + $release.AssetName) }
+
+        $zipPath = Join-Path $workDir $safeName
         Set-BusyStatus 'Скачивание обновления...'
         Write-UiLog ('Скачивание: ' + $release.AssetUrl) 'Cyan'
-        if (-not (Invoke-CurlDownload -Url $release.AssetUrl -OutFile $zipPath -TimeoutSec 600)) {
-            throw 'Не удалось скачать архив обновления.'
+        if (-not (Invoke-CurlDownload -Url $release.AssetUrl -OutFile $zipPath -TimeoutSec 600 `
+                    -ExpectedSha256 ([string]$release.AssetSha256))) {
+            throw ('Не удалось скачать или проверить архив обновления: ' + $script:ZC_LastDownloadError)
         }
 
         Set-BusyStatus 'Распаковка архива...'
@@ -3120,7 +3305,7 @@ function Install-UpdateAction {
         $sourceRoot = $serviceBat.DirectoryName
 
         $parentDir = Split-Path -Parent $oldRoot
-        $targetDir = Join-Path $parentDir ([IO.Path]::GetFileNameWithoutExtension($release.AssetName))
+        $targetDir = Join-Path $parentDir ([IO.Path]::GetFileNameWithoutExtension($safeName))
         if ($targetDir.TrimEnd('\') -ieq $oldRoot.TrimEnd('\')) {
             $targetDir = $oldRoot.TrimEnd('\') + '-update-' + $release.Tag
         }
@@ -3355,6 +3540,27 @@ function Show-NavPage {
             $script:NavPages[$i].Visibility = [Windows.Visibility]::Collapsed
         }
     }
+
+    # Каждая страница открывается с начала: иначе ScrollViewer сохраняет прокрутку
+    # предыдущей страницы (например, после выбора темы внизу «Настроек»).
+    $scroll = $script:PageScroll
+    if (-not $scroll) { $scroll = Get-Ui 'PageScroll' }
+    if ($scroll) {
+        $scroll.ScrollToTop()
+        $scroll.ScrollToLeftEnd()
+        # Повторяем после пересчёта разметки — уже в script-scope, чтобы делегат
+        # диспетчера видел переменные.
+        try {
+            $script:Window.Dispatcher.BeginInvoke(
+                [action]{
+                    if ($script:PageScroll) {
+                        $script:PageScroll.ScrollToTop()
+                        $script:PageScroll.ScrollToLeftEnd()
+                    }
+                },
+                [Windows.Threading.DispatcherPriority]::Background) | Out-Null
+        } catch { }
+    }
 }
 
 for ($i = 0; $i -lt $script:NavButtons.Count; $i++) {
@@ -3379,6 +3585,11 @@ $script:Window.Add_Loaded({
     if ($script:LstStrategies -and $script:LstStrategies.SelectedItem) {
         try { $script:LstStrategies.ScrollIntoView($script:LstStrategies.SelectedItem) } catch { }
     }
+    try { Update-LogDrawerMetrics } catch { }
+})
+
+$script:Window.Add_SizeChanged({
+    try { Update-LogDrawerMetrics } catch { }
 })
 
 foreach ($themePair in @(@('ThemeLight', 'light'), @('ThemeDark', 'dark'), @('ThemeNeon', 'neon'))) {
@@ -3400,9 +3611,6 @@ foreach ($themePair in @(@('ThemeLight', 'light'), @('ThemeDark', 'dark'), @('Th
 })
 (Get-Ui 'BtnInstall').Add_Click({
     Invoke-UiSafe { Install-ServiceAction }
-})
-(Get-Ui 'BtnRemove').Add_Click({
-    Invoke-UiSafe { Remove-ServiceAction }
 })
 
 $script:LstStrategies.Add_SelectionChanged({
@@ -3426,6 +3634,9 @@ $script:BtnStopService.Add_Click({
 })
 $script:BtnRestartService.Add_Click({
     Invoke-UiSafe { Restart-ServiceAction }
+})
+$script:BtnRemoveService.Add_Click({
+    Invoke-UiSafe { Remove-ServiceAction }
 })
 (Get-Ui 'BtnServiceBat').Add_Click({
     Invoke-UiSafe { Open-ServiceBatMenu }
@@ -3578,6 +3789,7 @@ $script:ChkStartupUpdates.Add_Click({
         $script:RtbLog.Visibility = [Windows.Visibility]::Collapsed
         (Get-Ui 'BtnToggleLog').Content = 'Развернуть'
     } else {
+        try { Update-LogDrawerMetrics } catch { }
         $script:RtbLog.Visibility = [Windows.Visibility]::Visible
         (Get-Ui 'BtnToggleLog').Content = 'Свернуть'
         $script:RtbLog.ScrollToEnd()

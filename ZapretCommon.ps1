@@ -6,7 +6,7 @@
 # ============================================================================
 
 $script:ZC_AppName      = 'Zapret Control'
-$script:ZC_AppVersion   = '1.3.0'
+$script:ZC_AppVersion   = '2.0.0'
 $script:ZC_GuiRepo      = 'Bugulmekas/zapret-gui'
 $script:ZC_GuiReleasesApi  = 'https://api.github.com/repos/Bugulmekas/zapret-gui/releases/latest'
 $script:ZC_GuiReleasesPage = 'https://github.com/Bugulmekas/zapret-gui/releases/latest'

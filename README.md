@@ -26,7 +26,7 @@
 </p>
 
 <p align="center">
-  <sub>Скриншот относится к версии 1.3.0: в актуальной сборке навигация вынесена в левый сайдбар, а журнал — нижняя раскрывающаяся панель.</sub>
+  <sub>Скриншот интерфейса 2.0.0: навигация в левом сайдбаре, журнал — нижняя раскрывающаяся панель.</sub>
 </p>
 
 **Zapret Control** — графический управлятор для пакета [zapret-discord-youtube](https://github.com/Flowseal/zapret-discord-youtube) от **Flowseal**.
@@ -41,7 +41,7 @@
 
 <p align="center">
   <a href="https://github.com/Bugulmekas/zapret-gui/releases/latest">
-    <img src="https://img.shields.io/badge/%E2%AC%87_%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C-1.3.0-FF2BD6?style=for-the-badge&labelColor=0D1117&logo=github&logoColor=white" alt="Скачать">
+    <img src="https://img.shields.io/badge/%E2%AC%87_%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C-2.0.0-FF2BD6?style=for-the-badge&labelColor=0D1117&logo=github&logoColor=white" alt="Скачать">
   </a>
 </p>
 
@@ -69,7 +69,7 @@
 
 ```
 F:\zapret\
-├─ zapret-gui-1.3.0\              ← эта программа
+├─ zapret-gui-2.0.0\               ← эта программа
 │  ├─ ZapretControl.bat
 │  ├─ ZapretControl.ps1
 │  └─ ZapretCommon.ps1
@@ -93,7 +93,7 @@ F:\zapret\
 </p>
 
 <p align="center">
-  <sub>Скриншот относится к версии 1.3.0 — до переноса навигации в сайдбар.</sub>
+  <sub>Интерфейс 2.0.0: сайдбар-навигация, журнал-панель, темы в «Настройках».</sub>
 </p>
 
 ## Как это работает

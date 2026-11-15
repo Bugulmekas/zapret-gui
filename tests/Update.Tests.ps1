@@ -313,6 +313,7 @@ Describe 'Транзакционное самообновление GUI (issue #
                            (Test-Path -LiteralPath (Join-Path $sb.App 'ZapretControl.bat')) -and
                            (Test-Path -LiteralPath $sb.ConfigPath)
             # Assert: двойник в %TEMP% и структура полная
+            Write-Host ("DIAG: sbRoot='{0}' | TEMP='{1}' | tempFull='{2}' | CWD='{3}' | RUNNER_TEMP='{4}'" -f $sb.Root, $env:TEMP, $tempFull, (Get-Location).Path, $env:RUNNER_TEMP)
             $sb.Root.ToLowerInvariant().StartsWith($tempFull.ToLowerInvariant()) | Should -BeTrue
             $structureOk | Should -BeTrue
             # Assert: тесты не оставляют staging/update-old в реальном репозитории

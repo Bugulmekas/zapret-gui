@@ -14,6 +14,9 @@
   <a href="https://github.com/Bugulmekas/zapret-gui/actions/workflows/ci.yml">
     <img src="https://img.shields.io/github/actions/workflow/status/Bugulmekas/zapret-gui/ci.yml?style=for-the-badge&label=CI&labelColor=0D1117&color=00F5FF&logo=githubactions&logoColor=00F5FF" alt="CI">
   </a>
+  <a href="https://github.com/Bugulmekas/zapret-gui/actions/workflows/update-tests.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/Bugulmekas/zapret-gui/update-tests.yml?style=for-the-badge&label=Update%20tests&labelColor=0D1117&color=00F5FF&logo=githubactions&logoColor=00F5FF" alt="Update tests">
+  </a>
   <a href="LICENSE">
     <img src="https://img.shields.io/github/license/Bugulmekas/zapret-gui?style=for-the-badge&labelColor=0D1117&color=7A5CFF&logo=opensourceinitiative&logoColor=7A5CFF" alt="Лицензия">
   </a>
@@ -31,7 +34,7 @@
 
 **Zapret Control** — графический управлятор для пакета [zapret-discord-youtube](https://github.com/Flowseal/zapret-discord-youtube) от **Flowseal**.
 
-Переносит в удобное окно всё управление из `service.bat`: установку и удаление службы, стратегии, игровой фильтр, IPSet, диагностику, обновление списков. Добавляет запуск стратегий без службы, тест стратегий, предупреждение о конфликте с VPN и автообновление пакета и самого GUI прямо с GitHub.
+Переносит в удобное окно всё управление из `service.bat`: установку и удаление службы, стратегии, игровой фильтр, IPSet, диагностику, обновление списков. Добавляет запуск стратегий без службы, тест стратегий, предупреждение о конфликте с VPN и автообновление пакета и самого GUI прямо с GitHub — самообновление GUI транзакционное: резервная копия, сверка SHA-256 и автоматический откат при любом сбое.
 
 - **GUI / форк:** Bugulmek
 - **Пакет zapret и источник обновлений:** Flowseal
@@ -51,7 +54,7 @@
 | **Настройки** | Игровой фильтр (выключен / TCP и UDP / только TCP / только UDP, произвольные диапазоны портов), режимы IPSet `any` / `none` / `loaded` с обновлением списка, открытие пользовательских списков, встроенная автопроверка обновлений `.bat`, переключатель тем |
 | **Инструменты** | Обновление IPSet и `hosts`, диагностика, замена active fake, очистка кэша Discord, удаление конфликтного WinDivert, папка данных, меню `service.bat`, выбор папки zapret |
 | **Тесты** | Запуск штатного `utils\test zapret.ps1` — тот же тест, что пункт 12 `service.bat`; быстрая проверка соединения (Discord, YouTube, Google, Cloudflare) |
-| **Обновление** | Проверка релизов пакета через GitHub API, скачивание, распаковка в новую папку, перенос списков и переустановка службы; отдельная карточка самообновления GUI; описание релиза с GitHub |
+| **Обновление** | Проверка релизов пакета через GitHub API, скачивание, распаковка в новую папку, перенос списков и переустановка службы; отдельная карточка самообновления GUI — транзакционная замена трёх файлов с резервной копией и автоматическим откатом при любом сбое; описание релиза с GitHub |
 | **Журнал** | Нижняя раскрывающаяся панель: вывод `winws.exe` в реальном времени, автопрокрутка, сохранение в файл и очистка |
 
 Диагностика в «Инструменты» → «Диагностика» проверяет BFE, прокси, Adguard, Killer, Intel Connectivity, Check Point, SmartByte, VPN и прокси-клиенты, DoH, WinDivert и конфликтующие службы.

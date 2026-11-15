@@ -312,8 +312,11 @@ Describe 'Транзакционное самообновление GUI (issue #
                            (Test-Path -LiteralPath (Join-Path $sb.App 'ZapretCommon.ps1')) -and
                            (Test-Path -LiteralPath (Join-Path $sb.App 'ZapretControl.bat')) -and
                            (Test-Path -LiteralPath $sb.ConfigPath)
-            # Assert: двойник в %TEMP% и структура полная
-            $sb.Root.ToLowerInvariant().StartsWith($tempFull.ToLowerInvariant()) | Should -BeTrue
+            # Assert: двойник в %TEMP% и структура полная.
+            # Обе стороны прогоняются через GetFullPath: на CI-раннерах TEMP
+            # бывает в 8.3-форме (RUNNER~1), GetFullPath разворачивает её.
+            $sbRootFull = [IO.Path]::GetFullPath($sb.Root).TrimEnd('\')
+            $sbRootFull.ToLowerInvariant().StartsWith($tempFull.ToLowerInvariant()) | Should -BeTrue
             $structureOk | Should -BeTrue
             # Assert: тесты не оставляют staging/update-old в реальном репозитории
             $repoStaging = @(Get-ChildItem -LiteralPath $script:RepoRoot -Directory -Filter 'update-staging-*' -ErrorAction SilentlyContinue)

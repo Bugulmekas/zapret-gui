@@ -1,24 +1,28 @@
 ﻿# ARCHITECTURE.md
 
-Карта файлов, стек и поток запуска Zapret Control. Состояние репозитория: ветка `feature/ui-redesign`, коммит `e408190`, версия `ZC_AppVersion = 1.3.0`.
+Карта файлов, стек и поток запуска Zapret Control. Состояние репозитория: ветка `main`, версия `ZC_AppVersion = 2.0.0`.
 
 ## Карта файлов
 
 | Каталог / файл | Содержит | Назначение |
 |---|---|---|
 | `ZapretControl.ps1` | XAML-разметка окна (`$windowXaml`), стили (`Window.Resources`), три темы (`light`/`dark`/`neon`), пять страниц (`PageService`, `PageSettings`, `PageTools`, `PageTests`, `PageUpdate`), обработчики событий (`Add_Click`), функции действий (запуск стратегии, служба, IPSet, обновление, диагностика), таймеры | Главный скрипт GUI на WPF |
-| `ZapretCommon.ps1` | Пути (`Resolve-ZapretRoot`, `Get-ZapretCandidates`), стратегии (`Get-Strategies`, `Get-WinwsArgs`), игровой фильтр, IPSet (`Get/Set-IpsetMode` с `.backup`/`.prev`), служба Windows (`Start/Stop/Remove-ZapretService`, проверка стабильности ~5 с, `Reset-WinDivertDriver`), конфликты VPN (`Get-VpnConflicts`), загрузки с GitHub (`Invoke-CurlText`/`Invoke-CurlDownload` через `curl` со временным UTF-8-файлом), версии (`Get-LocalZapretVersion` из `LOCAL_VERSION` в `service.bat`) | Общая библиотека функций |
+| `ZapretCommon.ps1` | Пути (`Resolve-ZapretRoot`, `Get-ZapretCandidates`), стратегии (`Get-Strategies`, `Get-WinwsArgs`), игровой фильтр, IPSet (`Get/Set-IpsetMode` с `.backup`/`.prev`), служба Windows (`Start/Stop/Remove-ZapretService`, проверка стабильности ~5 с, `Reset-WinDivertDriver`), конфликты VPN (`Get-VpnConflicts`), загрузки с GitHub (`Invoke-CurlText`/`Invoke-CurlDownload` через `curl` со временным UTF-8-файлом), версии (`Get-LocalZapretVersion` из `LOCAL_VERSION` в `service.bat`), самообновление GUI (`Test-GuiUpdateStaging`, `New-GuiUpdateBackup`, `Invoke-GuiUpdateFileSwap`, `Restore-GuiUpdateFiles`, `Remove-OldGuiUpdateBackups`) | Общая библиотека функций |
 | `ZapretControl.bat` | Полный путь к `powershell.exe`, проверка наличия `.ps1` рядом, проброс `errorlevel` | Лаунчер |
 | `tools\Test-Xaml.ps1` | Разбор XAML через `XamlReader` без запуска окна | Проверки |
 | `tools\Test-UiSmoke.ps1` | Дымовый тест интерфейса через UI Automation (`-Preview`) | Проверки |
 | `tools\Capture-UiPreview.ps1` | PNG-снимок окна (базовые скриншоты) | Проверки |
 | `tools\Test-Contrast.ps1` | Контраст WCAG 2.1 для палитр всех тем | Проверки |
 | `tools\Test-ZipSlip.ps1` | Защита от Zip Slip при распаковке архивов | Проверки |
+| `tests\Update.Tests.ps1` | Pester v5: сценарии транзакционного самообновления (staging, бэкап, подмена, откат, лимит бэкапов) в песочнице `%TEMP%` | Тесты |
+| `.github\workflows\update-tests.yml` | Прогон Pester-тестов самообновления и проверок `tools\` в Windows PowerShell 5.1 и PowerShell 7 | CI |
 | `data\config.json` | Папка zapret, выбранная стратегия, тема, авто-проверка обновлений | Данные |
 | `data\winws.log` | Вывод `winws.exe` при ручном запуске | Данные |
 | `data\run-current.bat` | Временный файл запуска стратегии | Данные |
 | `data\ipset-new.txt` | Временный файл обновления IPSet | Данные |
-| `data\backup-<версия>\` | Резервная копия скриптов перед самообновлением GUI | Данные |
+| `data\update-staging-<guid>\` | Распакованный архив обновления; проверяется до подмены, удаляется после установки | Данные |
+| `data\update-old-<guid>\` | Прежние версии трёх файлов GUI; основной источник автоотката | Данные |
+| `data\backup-<версия>-<yyyyMMdd-HHmmss>\` | Резервные копии трёх файлов GUI + манифест `backup.json` (SHA-256 каждого файла); хранятся три последних | Данные |
 
 ## Слои
 
@@ -64,6 +68,37 @@ UAC: если не администратор и не -Preview — переза�
 ```
 
 При закрытии окна таймеры останавливаются и `data\config.json` сохраняется.
+
+## Транзакционное самообновление GUI
+
+Заменяются три файла: `ZapretControl.ps1`, `ZapretCommon.ps1`, `ZapretControl.bat`
+(список — `$script:ZC_GuiFiles` в `ZapretCommon.ps1`). Оркестратор —
+`Install-GuiUpdateAction` в `ZapretControl.ps1`, механика подмены и отката —
+в `ZapretCommon.ps1`.
+
+```
+Проверка обновления (Check-GuiUpdatesAction) → Install-GuiUpdateAction
+    ↓
+Скачивание zip в %TEMP%\zapret-gui-update-<guid> + сверка SHA-256 с digest GitHub
+    ↓
+Распаковка в data\update-staging-<guid>
+    ↓
+Валидация staging (Test-GuiUpdateStaging):
+  - три файла на месте, синтаксис .ps1 парсером, формат .bat (ASCII/CRLF, без BOM)
+  - версия ZC_AppVersion строго новее установленной
+    ↓
+Резервная копия (New-GuiUpdateBackup):
+  data\backup-<версия>-<yyyyMMdd-HHmmss> + backup.json (SHA-256 каждого файла)
+    ↓
+Подмена (Invoke-GuiUpdateFileSwap): текущие файлы → data\update-old-<guid>,
+                                    файлы из staging → на места
+    ↓
+Сверка SHA-256 на местах с архивом
+    ↓
+Успех → удаление staging и update-old, лимит бэкапов — 3 последних, перезапуск GUI
+Сбой  → откат (Restore-GuiUpdateFiles): update-old, иначе последний backup-*,
+         сверка по backup.json; приложение не перезапускается
+```
 
 ## Правила будущих правок
 

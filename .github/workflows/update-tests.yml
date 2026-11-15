@@ -1,0 +1,93 @@
+name: Update tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pester:
+    name: Тесты самообновления (${{ matrix.shell }})
+    runs-on: windows-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shell: [powershell, pwsh]
+
+    steps:
+      - name: Получение кода
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Установка Pester v5+
+        shell: ${{ matrix.shell }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Install-Module Pester -Scope CurrentUser -Force -SkipPublisherCheck -MinimumVersion 5.0.0
+          Import-Module Pester -MinimumVersion 5.0.0 -Force
+          $version = (Get-Module Pester).Version
+          Write-Host "Используется Pester $version"
+          if ($version.Major -lt 5) {
+            Write-Host "::error::Ожидался Pester v5+, получен $version"
+            exit 1
+          }
+
+      - name: Тесты транзакционного самообновления (Pester)
+        shell: ${{ matrix.shell }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Import-Module Pester -MinimumVersion 5.0.0 -Force
+          $xml = Join-Path $env:RUNNER_TEMP 'update-tests-nunit.xml'
+          $cfg = New-PesterConfiguration
+          $cfg.Run.Path = 'tests\Update.Tests.ps1'
+          $cfg.Run.PassThru = $true
+          $cfg.Output.Verbosity = 'Detailed'
+          $cfg.TestResult.Enabled = $true
+          $cfg.TestResult.OutputFormat = 'NUnitXml'
+          $cfg.TestResult.OutputPath = $xml
+          $result = Invoke-Pester -Configuration $cfg
+          if (-not (Test-Path -LiteralPath $xml)) {
+            Write-Host '::error::NUnitXml-отчёт не создан'
+            exit 1
+          }
+          if ($result.FailedCount -gt 0) {
+            Write-Host "::error::Pester: провалено тестов $($result.FailedCount) из $($result.TotalCount)"
+            exit 1
+          }
+          Write-Host "Pester OK: $($result.PassedCount) из $($result.TotalCount) тестов, отчёт: $xml"
+
+      - name: Проверка XAML через XamlReader (tools\Test-Xaml.ps1)
+        shell: ${{ matrix.shell }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & '.\tools\Test-Xaml.ps1'
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::error::tools\Test-Xaml.ps1 завершился с кодом $LASTEXITCODE"
+            exit 1
+          }
+
+      - name: Контраст элементов интерфейса (tools\Test-Contrast.ps1)
+        shell: ${{ matrix.shell }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & '.\tools\Test-Contrast.ps1'
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::error::tools\Test-Contrast.ps1 завершился с кодом $LASTEXITCODE"
+            exit 1
+          }
+
+      - name: Защита от ZipSlip при распаковке (tools\Test-ZipSlip.ps1)
+        shell: ${{ matrix.shell }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & '.\tools\Test-ZipSlip.ps1'
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::error::tools\Test-ZipSlip.ps1 завершился с кодом $LASTEXITCODE"
+            exit 1
+          }

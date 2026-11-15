@@ -3135,15 +3135,33 @@ function Install-GuiUpdateAction {
 
     if (-not (Confirm-Ui ("Скачать и установить Zapret Control $($release.Tag)?`n`nСкрипты будут заменены, настройки сохранятся.`nПосле установки приложение перезапустится.") 'Обновление GUI')) { return }
 
-    $workDir = Join-Path $env:TEMP ('zapret-gui-update-' + [guid]::NewGuid().ToString('N'))
-    $files = @('ZapretControl.ps1', 'ZapretCommon.ps1', 'ZapretControl.bat')
-    $backupDir = $null
-    $tempFiles = New-Object System.Collections.ArrayList
+    $appRoot = Get-ZcAppRootPath -AppRoot $script:AppDir
+    if (-not $appRoot) {
+        Show-UiError 'Не удалось определить каталог приложения — обновление отменено.' 'Обновление GUI'
+        return
+    }
+
+    $runId = [guid]::NewGuid().ToString('N')
+    $workDir = Join-Path $env:TEMP ('zapret-gui-update-' + $runId)
+    $dataDir = Join-Path $appRoot 'data'
+    $stagingDir = Join-Path $dataDir ('update-staging-' + $runId)
+    $oldDir = Join-Path $dataDir ('update-old-' + $runId)
+    $commonPath = Join-Path $appRoot 'ZapretCommon.ps1'
+    $files = @($script:ZC_GuiFiles)
+    $targetHashes = @{}
+
+    $backup = $null
+    $swapAttempted = $false
+    $swapResult = $null
+    $installed = $false
+    $rollbackVerified = $false
 
     try {
         New-Item -ItemType Directory -Path $workDir -Force | Out-Null
+        New-Item -ItemType Directory -Path $dataDir -Force | Out-Null
 
-        # Без хеша от GitHub обновление не выполняем: иначе целостность не проверяется.
+        # 1. Скачивание и проверка SHA-256 из digest GitHub. Несовпадение хеша — обновление
+        #    не начинается: staging не создаётся, рабочие файлы не тронуты.
         $sha256 = [string]$release.AssetSha256
         if ([string]::IsNullOrWhiteSpace($sha256)) {
             throw 'GitHub не вернул SHA256 ассета — обновление отменено (нет проверки целостности).'
@@ -3159,64 +3177,80 @@ function Install-GuiUpdateAction {
             throw ('Не удалось скачать или проверить архив GUI: ' + $script:ZC_LastDownloadError)
         }
 
+        # 2. Распаковка — в staging рядом с приложением (data\update-staging-<guid>),
+        #    сам zip остаётся во временном каталоге %TEMP%.
         Set-BusyStatus 'Распаковка архива...'
-        $extractDir = Join-Path $workDir 'extract'
-        Expand-Archive -LiteralPath $zipPath -DestinationPath $extractDir -Force
+        New-Item -ItemType Directory -Path $stagingDir -Force | Out-Null
+        Expand-Archive -LiteralPath $zipPath -DestinationPath $stagingDir -Force -ErrorAction Stop
 
-        $sourceScript = Get-ChildItem -LiteralPath $extractDir -Recurse -Filter 'ZapretControl.ps1' -File -ErrorAction SilentlyContinue |
+        # Архив может содержать вложенный каталог: staging-корень — тот, где лежат оба скрипта.
+        $sourceScript = Get-ChildItem -LiteralPath $stagingDir -Recurse -Filter 'ZapretControl.ps1' -File -ErrorAction SilentlyContinue |
             Where-Object { Test-Path -LiteralPath (Join-Path $_.DirectoryName 'ZapretCommon.ps1') } |
             Select-Object -First 1
         if (-not $sourceScript) { throw 'В архиве не найдены ZapretControl.ps1 и ZapretCommon.ps1.' }
-        $sourceDir = $sourceScript.DirectoryName
+        $stagingRoot = $sourceScript.DirectoryName
 
-        foreach ($name in @('ZapretControl.ps1', 'ZapretCommon.ps1')) {
-            $errors = $null
-            [void][Management.Automation.Language.Parser]::ParseFile((Join-Path $sourceDir $name), [ref]$null, [ref]$errors)
-            if ($errors.Count -gt 0) { throw ("Новый файл $name содержит ошибки синтаксиса.") }
+        # 3. Проверка staging ДО подмены: состав, синтаксис PS 5.1, формат .bat, версия новее.
+        Set-BusyStatus 'Проверка обновления...'
+        $check = Test-GuiUpdateStaging -StagingDir $stagingRoot -CurrentCommonPath $commonPath
+        if (-not $check.Ok) {
+            $reasonList = (@($check.Reasons) | Where-Object { $_ } | ForEach-Object { '  - ' + $_ }) -join "`n"
+            if (-not $reasonList) { $reasonList = '  - причина не указана' }
+            throw ("Архив обновления не прошёл проверку:`n" + $reasonList)
         }
 
-        $commonText = [IO.File]::ReadAllText((Join-Path $sourceDir 'ZapretCommon.ps1'))
-        if ($commonText -notmatch "ZC_AppVersion\s*=\s*'([^']+)'") { throw 'В архиве не найдена версия GUI.' }
-        if ($matches[1] -ne $release.Tag.TrimStart('v')) { throw "Архив содержит версию $($matches[1]) вместо $($release.Tag)." }
-
-        $backupDir = Join-Path $script:DataDir ('backup-' + $script:ZC_AppVersion)
-        New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
-
+        # 4. Целевые хеши снимаются со staging ДО перемещения — по ним проверяется установка.
         foreach ($name in $files) {
-            $current = Join-Path $script:AppDir $name
-            if (Test-Path -LiteralPath $current) {
-                Copy-Item -LiteralPath $current -Destination (Join-Path $backupDir $name) -Force
-            }
+            $hash = Get-ZcFileSha256 -Path (Join-Path $stagingRoot $name)
+            if (-not $hash) { throw ("Не удалось посчитать SHA-256 staging-файла $name.") }
+            $targetHashes[$name] = $hash
         }
 
+        # 5. Резервная копия рабочих файлов: без неё подмена не выполняется.
+        $backup = New-GuiUpdateBackup -AppRoot $appRoot -CurrentVersion $check.CurrentVersion
+        if (-not $backup.Ok) {
+            throw ('Не удалось создать резервную копию: ' + [string]$backup.Error)
+        }
+
+        # 6. Подмена: текущие файлы — в update-old, файлы из staging — на их места.
         Set-BusyStatus 'Установка GUI...'
-        foreach ($name in $files) {
-            $candidate = Join-Path $sourceDir $name
-            if (-not (Test-Path -LiteralPath $candidate)) { continue }
-            $dest = Join-Path $script:AppDir $name
-            $tmp = Join-Path $script:AppDir ('.' + $name + '.new')
-            [void]$tempFiles.Add($tmp)
+        $swapAttempted = $true
+        $swapResult = Invoke-GuiUpdateFileSwap -StagingDir $stagingRoot -OldDir $oldDir -TargetRoot $appRoot -Files $files
+        if (-not $swapResult.Ok) {
+            $swapError = (@($swapResult.Errors) | Where-Object { $_ }) -join '; '
+            if (-not $swapError) { $swapError = 'подмена файлов завершилась с ошибкой' }
+            throw $swapError
+        }
 
-            # Сначала новый файл целиком пишется рядом с целевым...
-            Copy-Item -LiteralPath $candidate -Destination $tmp -Force
-            # ...затем подменяет целевой в пределах тома (атомарно).
-            if (Test-Path -LiteralPath $dest) {
-                try { [IO.File]::Replace($tmp, $dest, $null) }
-                catch { Move-Item -LiteralPath $tmp -Destination $dest -Force }
-            } else {
-                Move-Item -LiteralPath $tmp -Destination $dest -Force
+        # Post-check: файлы на местах должны совпасть с целевыми хешами из п.4.
+        $postProblems = New-Object System.Collections.Generic.List[string]
+        foreach ($name in $files) {
+            $actual = Get-ZcFileSha256 -Path (Join-Path $appRoot $name)
+            $expected = [string]$targetHashes[$name]
+            if (-not $actual) {
+                $postProblems.Add("$name отсутствует после установки")
+            } elseif ($actual -ne $expected) {
+                $postProblems.Add("${name}: SHA-256 не совпал (ожидался $expected, получен $actual)")
             }
         }
+        if ($postProblems.Count -gt 0) {
+            throw ('После установки файлы не совпали с архивом: ' + [string]::Join('; ', $postProblems.ToArray()))
+        }
+
+        # 7. Успех: чистим staging/update-old, в data\ остаются 3 последних бэкапа.
+        [void](Remove-GuiUpdateLeftovers -StagingDir $stagingDir -OldDir $oldDir)
+        [void](Remove-OldGuiUpdateBackups -AppRoot $appRoot -Keep 3)
+        $installed = $true
 
         Write-UiLog ('GUI обновлён до ' + $release.Tag + '. Перезапуск...') 'Green'
         Set-BusyStatus 'GUI обновлён, перезапуск'
         Show-UiInfo ("Zapret Control обновлён до $($release.Tag).`n`nПриложение сейчас перезапустится.") 'Обновление GUI'
 
-        $launcher = Join-Path $script:AppDir 'ZapretControl.bat'
+        $launcher = Join-Path $appRoot 'ZapretControl.bat'
         if (Test-Path -LiteralPath $launcher) {
-            Start-Process -FilePath $launcher -WorkingDirectory $script:AppDir | Out-Null
+            Start-Process -FilePath $launcher -WorkingDirectory $appRoot | Out-Null
         } else {
-            Start-Process -FilePath 'powershell.exe' -ArgumentList ('-NoProfile -ExecutionPolicy Bypass -Sta -File "' + (Join-Path $script:AppDir 'ZapretControl.ps1') + '"') | Out-Null
+            Start-Process -FilePath 'powershell.exe' -ArgumentList ('-NoProfile -ExecutionPolicy Bypass -Sta -File "' + (Join-Path $appRoot 'ZapretControl.ps1') + '"') | Out-Null
         }
 
         $script:RestartTimer = New-Object Windows.Threading.DispatcherTimer
@@ -3229,32 +3263,78 @@ function Install-GuiUpdateAction {
     } catch {
         $errorMessage = $_.Exception.Message
 
-        # Откат: возвращаем рабочие файлы из резервной копии.
-        $restored = $false
-        if ($backupDir) {
-            foreach ($name in $files) {
-                $backup = Join-Path $backupDir $name
-                if (Test-Path -LiteralPath $backup) {
-                    try {
-                        Copy-Item -LiteralPath $backup -Destination (Join-Path $script:AppDir $name) -Force
-                        $restored = $true
-                    } catch { }
-                }
-            }
+        # Откат нужен только если подмена уже трогала рабочие файлы.
+        $swapTouched = $swapAttempted
+        if ($swapResult) {
+            $movedCount = 0
+            if ($swapResult.MovedToOld) { $movedCount = $swapResult.MovedToOld.Count }
+            $installedCount = 0
+            if ($swapResult.Installed) { $installedCount = $swapResult.Installed.Count }
+            $swapTouched = (($movedCount + $installedCount) -gt 0)
         }
 
-        $suffix = if ($restored) { ' (выполнен откат)' } else { '' }
-        Write-UiLog ('Ошибка обновления GUI: ' + $errorMessage + $suffix) 'Red'
-        Show-UiError ($errorMessage + $suffix) 'Обновление GUI'
-        Set-BusyStatus 'Ошибка обновления GUI'
-    } finally {
-        foreach ($tmp in $tempFiles) {
-            if ($tmp -and (Test-Path -LiteralPath $tmp)) {
-                Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
+        if ($installed) {
+            # Файлы уже установлены и проверены — откат запрещён, только сообщение о рестарте.
+            Write-UiLog ('GUI установлен, но завершающий шаг не выполнен: ' + $errorMessage) 'Red'
+            Show-UiError ("Zapret Control обновлён до $($release.Tag), но автоматический перезапуск не удался:`n$errorMessage`n`nЗапустите ZapretControl.bat вручную.") 'Обновление GUI'
+            Set-BusyStatus 'GUI обновлён, нужен ручной перезапуск'
+        } elseif ($swapTouched) {
+            $backupDir = $null
+            $manifestPath = $null
+            if ($backup) {
+                $backupDir = $backup.BackupDir
+                $manifestPath = $backup.ManifestPath
             }
+
+            $rollback = $null
+            try {
+                $rollback = Restore-GuiUpdateFiles -TargetRoot $appRoot -OldDir $oldDir `
+                    -BackupDir $backupDir -ManifestPath $manifestPath
+            } catch {
+                Write-UiLog ('Исключение при откате: ' + $_.Exception.Message) 'Red'
+            }
+
+            if ($rollback) { $rollbackVerified = [bool]$rollback.Verified }
+            $restoredNames = if ($rollback -and $rollback.Restored) { $rollback.Restored -join ', ' } else { 'ничего' }
+
+            Write-UiLog ('Сбой установки GUI: ' + $errorMessage) 'Red'
+            Write-UiLog ("Откат: источник update-old/backup, восстановлено — $restoredNames; проверка по манифесту: " +
+                $(if ($rollbackVerified) { 'успешно' } else { 'НЕ пройдена' })) $(if ($rollbackVerified) { 'Yellow' } else { 'Red' })
+            if ($rollback -and $rollback.Reasons) {
+                foreach ($reason in $rollback.Reasons) { Write-UiLog ('  ' + $reason) 'Red' }
+            }
+
+            $restoredVersion = Get-ZcScriptAppVersion -Path $commonPath
+            if (-not $restoredVersion) { $restoredVersion = $script:ZC_AppVersion }
+            $shortReason = ([string]$errorMessage -split "`r?`n")[0]
+            $userText = "Обновление отменено, восстановлена версия $restoredVersion.`nПричина: $shortReason"
+            if ($rollbackVerified) {
+                $userText += "`n`nФайлы сверены с резервной копией по манифесту."
+            } else {
+                $userText += "`n`nВНИМАНИЕ: проверка восстановленных файлов не пройдена, нужна ручная проверка.`nРезервная копия: " + [string]$backupDir
+            }
+
+            [void](Remove-OldGuiUpdateBackups -AppRoot $appRoot -Keep 3)
+            Write-UiLog ('Обновление отменено, восстановлена версия ' + $restoredVersion + '.') 'Yellow'
+            Show-UiError $userText 'Обновление GUI'
+            Set-BusyStatus 'Обновление отменено (выполнен откат)'
+        } else {
+            # Архив/бэкап не прошли проверку — рабочие файлы не тронуты, откатывать нечего.
+            Write-UiLog ('Обновление GUI отменено: ' + $errorMessage) 'Red'
+            if ($backup -and $backup.Ok) { [void](Remove-OldGuiUpdateBackups -AppRoot $appRoot -Keep 3) }
+            Show-UiError $errorMessage 'Обновление GUI'
+            Set-BusyStatus 'Обновление GUI отменено'
         }
+    } finally {
+        # Временный zip и рабочий каталог %TEMP% не нужны ни на одном пути.
         if (Test-Path -LiteralPath $workDir) {
             Remove-Item -LiteralPath $workDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        # Неуспешный путь не оставляет staging; update-old сохраняется, если откат не подтверждён.
+        if (-not $installed) {
+            $oldLeftover = $null
+            if ($rollbackVerified) { $oldLeftover = $oldDir }
+            [void](Remove-GuiUpdateLeftovers -StagingDir $stagingDir -OldDir $oldLeftover)
         }
     }
 }

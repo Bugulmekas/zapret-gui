@@ -16,6 +16,10 @@ $script:ZC_ReleasesPage = 'https://github.com/Flowseal/zapret-discord-youtube/re
 $script:ZC_IpsetUrl     = 'https://raw.githubusercontent.com/Flowseal/zapret-discord-youtube/refs/heads/main/.service/ipset-service.txt'
 $script:ZC_HostsUrl     = 'https://raw.githubusercontent.com/Flowseal/zapret-discord-youtube/refs/heads/main/.service/hosts'
 $script:ZC_VersionCache = @{}
+$script:ZC_AppRoot      = $PSScriptRoot
+# Файлы, которые заменяет самообновление GUI, и лимит истории резервных копий.
+$script:ZC_GuiFiles     = @('ZapretControl.ps1', 'ZapretCommon.ps1', 'ZapretControl.bat')
+$script:ZC_MaxGuiBackups = 3
 
 # ---------------------------------------------------------------------------
 #  Права / пути
@@ -833,6 +837,724 @@ function Get-AssetSha256 {
     return $null
 }
 
+# ---------------------------------------------------------------------------
+#  Самообновление GUI: staging, бэкап, подмена, откат
+# ---------------------------------------------------------------------------
+function Get-ZcFileSha256 {
+    # Единая точка хеширования файла: bare-hex в верхнем регистре, как у Get-AssetSha256.
+    param([string]$Path)
+
+    if ([string]::IsNullOrWhiteSpace($Path)) { return $null }
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $null }
+    try {
+        return (Get-FileHash -LiteralPath $Path -Algorithm SHA256 -ErrorAction Stop).Hash.ToUpperInvariant()
+    } catch {
+        Write-Verbose ('Get-FileHash: ' + $_.Exception.Message)
+        return $null
+    }
+}
+
+function Get-ZcAppRootPath {
+    # Корень приложения — каталог, где лежат ZapretControl.ps1/ZapretCommon.ps1.
+    # Путь берётся из параметра, иначе из $script:ZC_AppRoot (каталог этого файла); cwd не используется.
+    param([string]$AppRoot)
+
+    if (-not [string]::IsNullOrWhiteSpace($AppRoot)) {
+        try {
+            return (Resolve-Path -LiteralPath $AppRoot -ErrorAction Stop).Path
+        } catch {
+            Write-Verbose ('AppRoot не найден: ' + $AppRoot)
+            return $null
+        }
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($script:ZC_AppRoot)) { return $script:ZC_AppRoot }
+    if (-not [string]::IsNullOrWhiteSpace($PSScriptRoot)) { return $PSScriptRoot }
+    return $null
+}
+
+function Get-ZcScriptAppVersion {
+    # Версия GUI из скрипта: $script:ZC_AppVersion = '2.0.0'.
+    param([string]$Path)
+
+    if ([string]::IsNullOrWhiteSpace($Path)) { return $null }
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $null }
+    try {
+        $text = [IO.File]::ReadAllText($Path)
+    } catch {
+        Write-Verbose ('Версия не прочитана: ' + $_.Exception.Message)
+        return $null
+    }
+    $match = [regex]::Match($text, "ZC_AppVersion\s*=\s*['""]([^'""]+)['""]")
+    if (-not $match.Success) { return $null }
+    return $match.Groups[1].Value.Trim()
+}
+
+function Get-ZcBatchFileProblems {
+    # .bat запускает cmd.exe: нужен ASCII без BOM и CRLF — иначе ломается первая строка/аргументы.
+    param([string]$Path)
+
+    $problems = New-Object System.Collections.Generic.List[string]
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        $problems.Add('файл не найден.')
+        return $problems
+    }
+
+    try {
+        $bytes = [IO.File]::ReadAllBytes($Path)
+    } catch {
+        $problems.Add('не прочитан: ' + $_.Exception.Message)
+        return $problems
+    }
+
+    if ($bytes.Length -eq 0) {
+        $problems.Add('файл пуст.')
+        return $problems
+    }
+
+    if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+        $problems.Add('в начале файла UTF-8 BOM (cmd.exe покажет мусор в первой строке).')
+    }
+
+    $nonAscii = 0
+    $lf = 0
+    $crlf = 0
+    for ($i = 0; $i -lt $bytes.Length; $i++) {
+        if ($bytes[$i] -gt 0x7F) { $nonAscii++ }
+        if ($bytes[$i] -eq 0x0A) {
+            $lf++
+            if ($i -gt 0 -and $bytes[$i - 1] -eq 0x0D) { $crlf++ }
+        }
+    }
+
+    if ($nonAscii -gt 0) { $problems.Add("не-ASCII байтов: $nonAscii.") }
+    if ($lf -eq 0) {
+        $problems.Add('нет переводов строк.')
+    } elseif ($crlf -ne $lf) {
+        $problems.Add("переводы строк не CRLF (LF=$lf, CRLF=$crlf).")
+    }
+
+    return $problems
+}
+
+function Get-ZcBackupSortKey {
+    # Ключ сортировки каталогов backup-*: timestamp из имени; каталоги без него
+    # (backup-<версия> от 2.0.0) считаются самыми старыми и удаляются первыми.
+    param([string]$Name)
+
+    $match = [regex]::Match([string]$Name, '-(\d{8}-\d{6})$')
+    if (-not $match.Success) { return [long]0 }
+    try {
+        $stamp = [datetime]::ParseExact($match.Groups[1].Value, 'yyyyMMdd-HHmmss', [Globalization.CultureInfo]::InvariantCulture)
+        return [long]$stamp.Ticks
+    } catch {
+        return [long]0
+    }
+}
+
+function Test-ZcSafeRemovalPath {
+    # Защита от удаления корня диска, каталога data и корня приложения при ошибке в пути.
+    param([string]$Path)
+
+    if ([string]::IsNullOrWhiteSpace($Path)) { return $false }
+    try {
+        $full = [IO.Path]::GetFullPath($Path).TrimEnd('\', '/')
+    } catch {
+        return $false
+    }
+    if ([string]::IsNullOrWhiteSpace($full)) { return $false }
+    if ($full -match '^[A-Za-z]:$') { return $false }
+
+    if (-not [string]::IsNullOrWhiteSpace($script:ZC_AppRoot)) {
+        try {
+            $appRoot = [IO.Path]::GetFullPath($script:ZC_AppRoot).TrimEnd('\', '/')
+            if ($full -eq $appRoot) { return $false }
+            if ($full -eq [IO.Path]::GetDirectoryName($appRoot)) { return $false }
+            if ($full -eq (Join-Path $appRoot 'data')) { return $false }
+        } catch { }
+    }
+
+    return $true
+}
+
+function Test-GuiUpdateStaging {
+    # Проверка распакованного staging ДО подмены: состав файлов, синтаксис PS 5.1,
+    # формат .bat и версия строго новее установленной. Возвращает ok + список причин отказа.
+    param(
+        [string]$StagingDir,
+        [string]$CurrentCommonPath,
+        [string[]]$Files = $script:ZC_GuiFiles
+    )
+
+    $reasons = New-Object System.Collections.Generic.List[string]
+    $result = [pscustomobject]@{
+        Ok             = $false
+        Reasons        = @()
+        StagingVersion = $null
+        CurrentVersion = $null
+    }
+
+    if ([string]::IsNullOrWhiteSpace($StagingDir) -or -not (Test-Path -LiteralPath $StagingDir -PathType Container)) {
+        $reasons.Add('Каталог staging не найден: ' + [string]$StagingDir)
+        $result.Reasons = @($reasons)
+        return $result
+    }
+
+    if ([string]::IsNullOrWhiteSpace($CurrentCommonPath)) {
+        $CurrentCommonPath = Join-Path $script:ZC_AppRoot 'ZapretCommon.ps1'
+    }
+
+    foreach ($name in @($Files)) {
+        $file = Join-Path $StagingDir $name
+        if (-not (Test-Path -LiteralPath $file -PathType Leaf)) {
+            $reasons.Add("В staging нет файла $name.")
+            continue
+        }
+
+        $info = Get-Item -LiteralPath $file -ErrorAction SilentlyContinue
+        if ($info -and $info.Length -le 0) {
+            $reasons.Add("Файл $name в staging пуст.")
+            continue
+        }
+
+        if ($name.EndsWith('.ps1', [StringComparison]::OrdinalIgnoreCase)) {
+            $parseErrors = $null
+            [void][Management.Automation.Language.Parser]::ParseFile($file, [ref]$null, [ref]$parseErrors)
+            if ($parseErrors -and $parseErrors.Count -gt 0) {
+                $details = (@($parseErrors | Select-Object -First 2 | ForEach-Object { $_.Message }) -join '; ')
+                $reasons.Add("Синтаксические ошибки в $name ($($parseErrors.Count)): $details")
+            }
+        } elseif ($name.EndsWith('.bat', [StringComparison]::OrdinalIgnoreCase)) {
+            foreach ($problem in @(Get-ZcBatchFileProblems -Path $file)) {
+                $reasons.Add("${name}: $problem")
+            }
+        }
+    }
+
+    $stagingVersion = Get-ZcScriptAppVersion -Path (Join-Path $StagingDir 'ZapretCommon.ps1')
+    $currentVersion = Get-ZcScriptAppVersion -Path $CurrentCommonPath
+    $result.StagingVersion = $stagingVersion
+    $result.CurrentVersion = $currentVersion
+
+    $stagingParsed = ConvertTo-AppVersion -Text $stagingVersion
+    $currentParsed = ConvertTo-AppVersion -Text $currentVersion
+
+    if (-not $stagingVersion) {
+        $reasons.Add('В staging ZapretCommon.ps1 не найдена версия ZC_AppVersion.')
+    } elseif (-not $currentVersion) {
+        $reasons.Add('Не удалось прочитать установленную версию ZC_AppVersion: ' + [string]$CurrentCommonPath)
+    } elseif (-not $stagingParsed -or -not $currentParsed) {
+        $reasons.Add("Не удалось сравнить версии: staging ($stagingVersion), установленная ($currentVersion).")
+    } elseif ($stagingParsed -le $currentParsed) {
+        $reasons.Add("Версия в staging ($stagingVersion) не новее установленной ($currentVersion).")
+    }
+
+    $result.Reasons = @($reasons)
+    $result.Ok = ($reasons.Count -eq 0)
+    return $result
+}
+
+function New-GuiUpdateBackup {
+    # Копия рабочих файлов в data\backup-<версия>-<yyyyMMdd-HHmmss> + манифест backup.json
+    # с SHA-256 каждого файла (по нему проверяется и откат).
+    param(
+        [string]$AppRoot,
+        [string]$CurrentVersion = $script:ZC_AppVersion,
+        [string[]]$Files = $script:ZC_GuiFiles,
+        [datetime]$Timestamp = (Get-Date)
+    )
+
+    $result = [pscustomobject]@{
+        Ok           = $false
+        BackupDir    = $null
+        ManifestPath = $null
+        Hashes       = @{}
+        Missing      = @()
+        Error        = $null
+    }
+
+    $root = Get-ZcAppRootPath -AppRoot $AppRoot
+    if (-not $root) {
+        $result.Error = 'Не найден корень приложения.'
+        return $result
+    }
+
+    $version = [string]$CurrentVersion
+    if ([string]::IsNullOrWhiteSpace($version)) { $version = 'unknown' }
+    $safeVersion = $version -replace '[^0-9A-Za-z._-]', '_'
+
+    $dataDir = Join-Path $root 'data'
+    $stamp = $Timestamp
+    $backupDir = Join-Path $dataDir ('backup-' + $safeVersion + '-' + $stamp.ToString('yyyyMMdd-HHmmss'))
+    # Одна и та же секунда не должна перезаписывать предыдущий бэкап — сдвигаем метку.
+    $attempt = 0
+    while ((Test-Path -LiteralPath $backupDir) -and $attempt -lt 60) {
+        $attempt++
+        $stamp = $stamp.AddSeconds(1)
+        $backupDir = Join-Path $dataDir ('backup-' + $safeVersion + '-' + $stamp.ToString('yyyyMMdd-HHmmss'))
+    }
+
+    $manifestPath = Join-Path $backupDir 'backup.json'
+    $hashes = @{}
+    $missing = New-Object System.Collections.Generic.List[string]
+    $created = $false
+
+    try {
+        New-Item -ItemType Directory -Path $backupDir -Force -ErrorAction Stop | Out-Null
+        $created = $true
+
+        foreach ($name in @($Files)) {
+            $source = Join-Path $root $name
+            if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
+                $missing.Add($name)
+                continue
+            }
+            $dest = Join-Path $backupDir $name
+            Copy-Item -LiteralPath $source -Destination $dest -Force -ErrorAction Stop
+            $hash = Get-ZcFileSha256 -Path $dest
+            if (-not $hash) { throw ("Не удалось посчитать SHA-256: $name") }
+            $hashes[$name] = $hash
+        }
+
+        if ($hashes.Count -eq 0) { throw 'Не удалось скопировать ни одного рабочего файла.' }
+
+        $manifest = [pscustomobject]@{
+            Version   = $version
+            CreatedAt = $stamp.ToString('yyyy-MM-ddTHH:mm:ss')
+            Files     = $hashes
+        }
+        $json = $manifest | ConvertTo-Json -Depth 4
+        [IO.File]::WriteAllText($manifestPath, $json, (New-Object Text.UTF8Encoding($true)))
+
+        $result.Ok = $true
+        $result.BackupDir = $backupDir
+        $result.ManifestPath = $manifestPath
+        $result.Hashes = $hashes
+    } catch {
+        $result.Error = $_.Exception.Message
+        # Неполный каталог без манифеста не должен попадать в историю бэкапов.
+        if ($created -and -not (Test-Path -LiteralPath $manifestPath)) {
+            Remove-Item -LiteralPath $backupDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    $result.Missing = @($missing)
+    return $result
+}
+
+function Test-GuiUpdateManifest {
+    # Сверка каталога с backup.json по SHA-256; при первом несовпадении — файл и оба хеша.
+    param(
+        [string]$Directory,
+        [string]$ManifestPath
+    )
+
+    $result = [pscustomobject]@{
+        Ok       = $false
+        Reason   = $null
+        File     = $null
+        Expected = $null
+        Actual   = $null
+        Files    = @()
+        Checked  = 0
+    }
+
+    if ([string]::IsNullOrWhiteSpace($ManifestPath)) {
+        if ([string]::IsNullOrWhiteSpace($Directory)) {
+            $result.Reason = 'Не указан ни каталог, ни манифест.'
+            return $result
+        }
+        $ManifestPath = Join-Path $Directory 'backup.json'
+    }
+    if ([string]::IsNullOrWhiteSpace($Directory)) {
+        $Directory = Split-Path -Parent $ManifestPath
+    }
+
+    $manifest = $null
+    try {
+        $json = [IO.File]::ReadAllText($ManifestPath)
+        $manifest = $json | ConvertFrom-Json -ErrorAction Stop
+    } catch {
+        $result.Reason = 'Манифест не прочитан (' + $ManifestPath + '): ' + $_.Exception.Message
+        return $result
+    }
+
+    $entries = @()
+    if ($manifest -and $manifest.Files) { $entries = @($manifest.Files.PSObject.Properties) }
+    if ($entries.Count -eq 0) {
+        $result.Reason = 'В манифесте нет списка файлов: ' + $ManifestPath
+        return $result
+    }
+
+    $checks = New-Object System.Collections.Generic.List[object]
+    $firstFailure = $null
+
+    foreach ($property in $entries) {
+        $name = [string]$property.Name
+        $expected = ([string]$property.Value).Trim().ToUpperInvariant()
+        $path = Join-Path $Directory $name
+        $actual = Get-ZcFileSha256 -Path $path
+
+        $ok = $false
+        $reason = $null
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+            $reason = 'файл отсутствует'
+        } elseif (-not $actual) {
+            $reason = 'SHA-256 не посчитан'
+        } elseif ($actual -ne $expected) {
+            $reason = "SHA-256 не совпал: ожидался $expected, получен $actual"
+        } else {
+            $ok = $true
+        }
+
+        $check = [pscustomobject]@{
+            Name     = $name
+            Expected = $expected
+            Actual   = $actual
+            Ok       = $ok
+            Reason   = $reason
+        }
+        $checks.Add($check)
+
+        if (-not $ok -and -not $firstFailure) { $firstFailure = $check }
+    }
+
+    $result.Files = $checks.ToArray()
+    $result.Checked = $checks.Count
+
+    if ($firstFailure) {
+        $result.File = $firstFailure.Name
+        $result.Expected = $firstFailure.Expected
+        $result.Actual = $firstFailure.Actual
+        $result.Reason = "$($firstFailure.Name): $($firstFailure.Reason)"
+        return $result
+    }
+
+    $result.Ok = $true
+    return $result
+}
+
+function Invoke-GuiUpdateFileSwap {
+    # Единственная точка фактической подмены файлов: текущие файлы уезжают в update-old,
+    # затем файлы из staging встают на их место. Только операции и факты: ни UI, ни решения
+    # об откате. Новый файл не ставится, если старый не удалось убрать (иначе он потерян).
+    param(
+        [string]$StagingDir,
+        [string]$OldDir,
+        [string]$TargetRoot,
+        [string[]]$Files = $script:ZC_GuiFiles
+    )
+
+    $result = [pscustomobject]@{
+        Ok         = $false
+        Steps      = @()
+        MovedToOld = @()
+        Installed  = @()
+        Errors     = @()
+    }
+
+    $steps = New-Object System.Collections.Generic.List[object]
+    $errors = New-Object System.Collections.Generic.List[string]
+    $moved = New-Object System.Collections.Generic.List[string]
+    $installed = New-Object System.Collections.Generic.List[string]
+
+    if ([string]::IsNullOrWhiteSpace($StagingDir) -or -not (Test-Path -LiteralPath $StagingDir -PathType Container)) {
+        $errors.Add('Каталог staging не найден: ' + [string]$StagingDir)
+    }
+    if ([string]::IsNullOrWhiteSpace($OldDir)) {
+        $errors.Add('Не указан каталог update-old.')
+    }
+    if ([string]::IsNullOrWhiteSpace($TargetRoot) -or -not (Test-Path -LiteralPath $TargetRoot -PathType Container)) {
+        $errors.Add('Целевой каталог не найден: ' + [string]$TargetRoot)
+    }
+
+    if ($errors.Count -eq 0) {
+        try {
+            New-Item -ItemType Directory -Path $OldDir -Force -ErrorAction Stop | Out-Null
+        } catch {
+            $errors.Add('Не удалось создать каталог update-old: ' + $_.Exception.Message)
+        }
+    }
+
+    if ($errors.Count -eq 0) {
+        # Шаг 1: текущие файлы — в update-old (как есть, без изменений).
+        foreach ($name in @($Files)) {
+            $source = Join-Path $TargetRoot $name
+            $dest = Join-Path $OldDir $name
+            if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
+                $steps.Add([pscustomobject]@{
+                    Name = $name; Action = 'to-old'; From = $source; To = $dest; Ok = $true
+                    Skipped = 'нет файла в целевом каталоге'; Error = $null
+                })
+                continue
+            }
+            try {
+                Move-Item -LiteralPath $source -Destination $dest -Force -ErrorAction Stop
+                $moved.Add($name)
+                $steps.Add([pscustomobject]@{
+                    Name = $name; Action = 'to-old'; From = $source; To = $dest; Ok = $true
+                    Skipped = $null; Error = $null
+                })
+            } catch {
+                $message = $_.Exception.Message
+                $errors.Add("Не удалось переместить $name в update-old: $message")
+                $steps.Add([pscustomobject]@{
+                    Name = $name; Action = 'to-old'; From = $source; To = $dest; Ok = $false
+                    Skipped = $null; Error = $message
+                })
+            }
+        }
+
+        # Шаг 2: файлы из staging — на места убранных.
+        foreach ($name in @($Files)) {
+            $source = Join-Path $StagingDir $name
+            $dest = Join-Path $TargetRoot $name
+            $oldStep = @($steps | Where-Object { $_.Name -eq $name -and $_.Action -eq 'to-old' })[0]
+            if (-not $oldStep -or -not $oldStep.Ok) { continue }
+
+            if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
+                $message = "В staging нет файла $name."
+                $errors.Add($message)
+                $steps.Add([pscustomobject]@{
+                    Name = $name; Action = 'to-target'; From = $source; To = $dest; Ok = $false
+                    Skipped = $null; Error = $message
+                })
+                continue
+            }
+            try {
+                Move-Item -LiteralPath $source -Destination $dest -Force -ErrorAction Stop
+                $installed.Add($name)
+                $steps.Add([pscustomobject]@{
+                    Name = $name; Action = 'to-target'; From = $source; To = $dest; Ok = $true
+                    Skipped = $null; Error = $null
+                })
+            } catch {
+                $message = $_.Exception.Message
+                $errors.Add("Не удалось поставить $name из staging: $message")
+                $steps.Add([pscustomobject]@{
+                    Name = $name; Action = 'to-target'; From = $source; To = $dest; Ok = $false
+                    Skipped = $null; Error = $message
+                })
+            }
+        }
+    }
+
+    $result.Steps = $steps.ToArray()
+    $result.MovedToOld = @($moved)
+    $result.Installed = @($installed)
+    $result.Errors = @($errors)
+    $result.Ok = ($errors.Count -eq 0)
+    return $result
+}
+
+function Restore-GuiUpdateFiles {
+    # Откат: убираем всё, что успело встать на места, возвращаем файлы из update-old,
+    # недостающие — из последнего бэкапа; итог проверяем по backup.json.
+    param(
+        [string]$TargetRoot,
+        [string]$OldDir,
+        [string]$BackupDir,
+        [string]$ManifestPath,
+        [string[]]$Files = $script:ZC_GuiFiles
+    )
+
+    $result = [pscustomobject]@{
+        Ok          = $false
+        Restored    = @()
+        NotRestored = @()
+        Source      = @{}
+        Reasons     = @()
+        Verified    = $false
+        Manifest    = $null
+    }
+
+    $reasons = New-Object System.Collections.Generic.List[string]
+    $restored = New-Object System.Collections.Generic.List[string]
+    $notRestored = New-Object System.Collections.Generic.List[string]
+    $sources = @{}
+
+    if ([string]::IsNullOrWhiteSpace($TargetRoot) -or -not (Test-Path -LiteralPath $TargetRoot -PathType Container)) {
+        $result.Reasons = @('Целевой каталог не найден: ' + [string]$TargetRoot)
+        return $result
+    }
+
+    if ([string]::IsNullOrWhiteSpace($ManifestPath) -and -not [string]::IsNullOrWhiteSpace($BackupDir)) {
+        $ManifestPath = Join-Path $BackupDir 'backup.json'
+    }
+    $result.Manifest = $ManifestPath
+
+    # Шаг 1: на местах может лежать недописанный/чужой файл из staging — убираем по списку имён.
+    foreach ($name in @($Files)) {
+        $dest = Join-Path $TargetRoot $name
+        if (Test-Path -LiteralPath $dest -PathType Leaf) {
+            try {
+                Remove-Item -LiteralPath $dest -Force -ErrorAction Stop
+            } catch {
+                $reasons.Add("Не удалось удалить $name перед восстановлением: " + $_.Exception.Message)
+            }
+        }
+    }
+
+    # Шаг 2: update-old в приоритете, бэкап — запасной источник.
+    foreach ($name in @($Files)) {
+        $dest = Join-Path $TargetRoot $name
+        $from = $null
+        $fromLabel = $null
+        foreach ($candidate in @(
+                @{ Dir = $OldDir; Label = 'update-old' },
+                @{ Dir = $BackupDir; Label = 'backup' })) {
+            if ([string]::IsNullOrWhiteSpace($candidate.Dir)) { continue }
+            $path = Join-Path $candidate.Dir $name
+            if (Test-Path -LiteralPath $path -PathType Leaf) {
+                $from = $path
+                $fromLabel = $candidate.Label
+                break
+            }
+        }
+
+        if (-not $from) {
+            $notRestored.Add($name)
+            $reasons.Add("Нет источника для ${name}: ни update-old, ни backup.")
+            continue
+        }
+
+        try {
+            Copy-Item -LiteralPath $from -Destination $dest -Force -ErrorAction Stop
+            $restored.Add($name)
+            $sources[$name] = $fromLabel
+        } catch {
+            $notRestored.Add($name)
+            $reasons.Add("Не удалось восстановить $name из ${fromLabel}: " + $_.Exception.Message)
+        }
+    }
+
+    # Шаг 3: проверка восстановленного по манифесту бэкапа.
+    if ($restored.Count -gt 0) {
+        if (-not [string]::IsNullOrWhiteSpace($ManifestPath) -and (Test-Path -LiteralPath $ManifestPath -PathType Leaf)) {
+            $check = Test-GuiUpdateManifest -Directory $TargetRoot -ManifestPath $ManifestPath
+            $result.Verified = $check.Ok
+            if (-not $check.Ok) { $reasons.Add('Проверка по манифесту не прошла: ' + $check.Reason) }
+        } else {
+            $reasons.Add('Манифест бэкапа не найден: ' + [string]$ManifestPath)
+        }
+    }
+
+    $result.Restored = @($restored)
+    $result.NotRestored = @($notRestored)
+    $result.Source = $sources
+    $result.Reasons = @($reasons)
+    $result.Ok = ($notRestored.Count -eq 0 -and $restored.Count -gt 0)
+    return $result
+}
+
+function Remove-GuiUpdateLeftovers {
+    # Чистка staging и update-old только после подтверждённого успеха; отсутствие каталогов — норма.
+    param(
+        [string]$StagingDir,
+        [string]$OldDir
+    )
+
+    $result = [pscustomobject]@{
+        Ok      = $true
+        Removed = @()
+        Skipped = @()
+        Errors  = @()
+    }
+
+    $removed = New-Object System.Collections.Generic.List[string]
+    $skipped = New-Object System.Collections.Generic.List[string]
+    $errors = New-Object System.Collections.Generic.List[string]
+
+    foreach ($path in @($StagingDir, $OldDir)) {
+        if ([string]::IsNullOrWhiteSpace($path)) { continue }
+        if (-not (Test-Path -LiteralPath $path)) {
+            $skipped.Add($path + ' (каталога нет)')
+            continue
+        }
+        if (-not (Test-Path -LiteralPath $path -PathType Container)) {
+            $skipped.Add($path + ' (не каталог)')
+            continue
+        }
+        if (-not (Test-ZcSafeRemovalPath -Path $path)) {
+            $skipped.Add($path + ' (защищённый путь)')
+            continue
+        }
+        try {
+            Remove-Item -LiteralPath $path -Recurse -Force -ErrorAction Stop
+            $removed.Add($path)
+        } catch {
+            $errors.Add('Не удалось удалить ' + $path + ': ' + $_.Exception.Message)
+        }
+    }
+
+    $result.Removed = @($removed)
+    $result.Skipped = @($skipped)
+    $result.Errors = @($errors)
+    $result.Ok = ($errors.Count -eq 0)
+    return $result
+}
+
+function Remove-OldGuiUpdateBackups {
+    # В data\ остаются только $Keep новейших backup-*; старые каталоги без timestamp
+    # (backup-<версия> от 2.0.0) удаляются первыми.
+    param(
+        [string]$AppRoot,
+        [int]$Keep = $script:ZC_MaxGuiBackups
+    )
+
+    $result = [pscustomobject]@{
+        Ok      = $true
+        Keep    = $Keep
+        Kept    = @()
+        Removed = @()
+        Errors  = @()
+    }
+
+    $root = Get-ZcAppRootPath -AppRoot $AppRoot
+    if (-not $root) {
+        $result.Ok = $false
+        $result.Errors = @('Не найден корень приложения.')
+        return $result
+    }
+    if ($Keep -lt 0) { $Keep = 0 }
+    $result.Keep = $Keep
+
+    $dataDir = Join-Path $root 'data'
+    if (-not (Test-Path -LiteralPath $dataDir -PathType Container)) { return $result }
+
+    $backups = @(Get-ChildItem -LiteralPath $dataDir -Directory -Filter 'backup-*' -ErrorAction SilentlyContinue)
+    if ($backups.Count -eq 0) { return $result }
+
+    $ordered = @($backups | Sort-Object -Property @(
+        @{ Expression = { Get-ZcBackupSortKey -Name $_.Name }; Descending = $true },
+        @{ Expression = { $_.Name }; Descending = $true }
+    ))
+
+    $keepList = @($ordered | Select-Object -First $Keep)
+    $removeList = @($ordered | Select-Object -Skip $Keep)
+
+    $removed = New-Object System.Collections.Generic.List[string]
+    $errors = New-Object System.Collections.Generic.List[string]
+
+    foreach ($dir in $removeList) {
+        try {
+            Remove-Item -LiteralPath $dir.FullName -Recurse -Force -ErrorAction Stop
+            $removed.Add($dir.Name)
+        } catch {
+            $errors.Add("Не удалось удалить $($dir.Name): " + $_.Exception.Message)
+        }
+    }
+
+    $result.Kept = @($keepList | ForEach-Object { $_.Name })
+    $result.Removed = @($removed)
+    $result.Errors = @($errors)
+    $result.Ok = ($errors.Count -eq 0)
+    return $result
+}
+
+# ---------------------------------------------------------------------------
+#  Версии и GitHub
+# ---------------------------------------------------------------------------
 function Get-LatestZapretRelease {
     $raw = Invoke-CurlText -Url $script:ZC_ReleasesApi -TimeoutSec 20
     if ([string]::IsNullOrWhiteSpace($raw)) { return $null }
